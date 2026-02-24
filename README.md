@@ -1,4 +1,21 @@
-# GO Simple Tunnel
+# Gust
+
+> Fork of [go-gost/gost](https://github.com/go-gost/gost) v3.2.6 with SSH relay fallback enhancements.
+> Implementation module: [lovitus/gust-x](https://github.com/lovitus/gust-x) (fork of [go-gost/x](https://github.com/go-gost/x) v0.8.1)
+
+## Additional Features (vs upstream)
+
+- **SSH Relay Fallback** - When SSH server disables TCP forwarding (`AllowTcpForwarding=no`), automatically falls back through multiplexed relay, embedded relay binary, or exec-based tools (nc/socat/perl/python/bash). Original direct-tcpip is always prioritized.
+- **Multiplexed Relay** - Single SSH exec session handles unlimited TCP connections via mux protocol, bypassing `MaxSessions` limits.
+- **Smart Relay Upload** - Embedded relay binary auto-uploaded to remote server, hash-cached (only transferred once per binary version).
+- **Escape-Based Passwords** - Supports backslash escapes and quotes in inline passwords (backward compatible with URL encoding).
+- **Cross-Platform Builds** - Pre-built binaries for 23 platform/arch combinations with UPX compression.
+
+See [FORK_CHANGES.md](FORK_CHANGES.md) for detailed technical documentation and upstream merge notes.
+
+---
+
+# GO Simple Tunnel (Upstream)
 
 ### GO语言实现的安全隧道
 
