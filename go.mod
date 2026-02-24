@@ -4,6 +4,8 @@ go 1.24.0
 
 toolchain go1.24.5
 
+replace github.com/go-gost/x => ../gust-x
+
 require (
 	github.com/go-gost/core v0.3.3
 	github.com/go-gost/x v0.8.1
