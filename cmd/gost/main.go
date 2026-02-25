@@ -8,9 +8,11 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-gost/core/logger"
 	xlogger "github.com/go-gost/x/logger"
@@ -36,6 +38,7 @@ var (
 	trace        bool
 	apiAddr      string
 	metricsAddr  string
+	watchdog     bool
 )
 
 func init() {
@@ -94,6 +97,7 @@ func init() {
 	flag.BoolVar(&trace, "DD", false, "trace mode")
 	flag.StringVar(&apiAddr, "api", "", "api service address")
 	flag.StringVar(&metricsAddr, "metrics", "", "metrics service address")
+	flag.BoolVar(&watchdog, "watchdog", false, "enable watchdog (auto-restart on crash)")
 	flag.Parse()
 
 	if printVersion {
@@ -104,6 +108,11 @@ func init() {
 }
 
 func main() {
+	if watchdog && os.Getenv("_GOST_WATCHDOG_CHILD") == "" {
+		runWatchdog()
+		return
+	}
+
 	log := xlogger.NewLogger()
 	logger.SetDefault(log)
 
@@ -111,5 +120,59 @@ func main() {
 
 	if err := svc.Run(p); err != nil {
 		logger.Default().Fatal(err)
+	}
+}
+
+func runWatchdog() {
+	log.Println("watchdog: started")
+
+	backoff := time.Second
+	maxBackoff := 60 * time.Second
+	stableAfter := 5 * time.Minute
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+
+	for {
+		cmd := exec.Command(os.Args[0], os.Args[1:]...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		cmd.Env = append(os.Environ(), "_GOST_WATCHDOG_CHILD=1")
+
+		start := time.Now()
+		if err := cmd.Start(); err != nil {
+			log.Printf("watchdog: failed to start: %v", err)
+			time.Sleep(backoff)
+			if backoff < maxBackoff {
+				backoff *= 2
+			}
+			continue
+		}
+
+		childDone := make(chan error, 1)
+		go func() { childDone <- cmd.Wait() }()
+
+		select {
+		case sig := <-sigCh:
+			cmd.Process.Signal(sig)
+			<-childDone
+			os.Exit(0)
+		case err := <-childDone:
+			if err == nil {
+				os.Exit(0)
+			}
+
+			elapsed := time.Since(start)
+			if elapsed > stableAfter {
+				backoff = time.Second
+			}
+
+			log.Printf("watchdog: process exited (%v), restarting in %v", err, backoff)
+			time.Sleep(backoff)
+			if backoff < maxBackoff {
+				backoff *= 2
+			}
+		}
 	}
 }
