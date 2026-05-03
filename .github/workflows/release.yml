@@ -1,50 +1,148 @@
-name: goreleaser
+name: release
 
 on:
   push:
-    # run only against tags
     tags:
       - 'v*'
 
 permissions:
   contents: write
-  # packages: write
-  # issues: write
+
+env:
+  GO_VERSION: '1.25'
 
 jobs:
-  goreleaser:
+  # ── 7 parallel build groups ──────────────────────────────────────────────────
+  build:
+    name: build / ${{ matrix.group }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Each target: "GOOS/GOARCH[/VARIANT]"
+          # VARIANT = GOAMD64 value (v1|v3), GOARM value (5|6|7),
+          #           or GOMIPS value (softfloat|hardfloat); empty = none.
+          - group: linux-main
+            targets: linux/amd64/v1 linux/amd64/v3 linux/386 linux/arm64
+          - group: linux-arm
+            targets: linux/arm/5 linux/arm/6 linux/arm/7
+          - group: linux-mips
+            targets: linux/mips/softfloat linux/mips/hardfloat linux/mipsle/softfloat linux/mipsle/hardfloat
+          - group: linux-misc
+            targets: linux/mips64 linux/mips64le linux/s390x linux/riscv64
+          - group: darwin
+            targets: darwin/amd64/v1 darwin/arm64
+          - group: freebsd
+            targets: freebsd/386 freebsd/amd64/v1
+          - group: windows
+            targets: windows/386 windows/amd64/v1 windows/amd64/v3 windows/arm64
+
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - run: git fetch --force --tags
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
 
       - name: Checkout gust-x
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch main
 
-      - name: Download gust-x modules
-        working-directory: ../gust-x
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download modules
         run: go mod download
 
-      - name: Install UPX
-        uses: crazy-max/ghaction-upx@v3
+      - name: Build targets
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+
+          for target in ${{ matrix.targets }}; do
+            IFS='/' read -r GOOS GOARCH VARIANT <<< "$target"
+
+            # Derive platform name and env vars from the variant
+            NAME="${GOOS}-${GOARCH}"
+            extra_env=""
+            case "$GOARCH" in
+              amd64)
+                AMD64="${VARIANT:-v1}"
+                NAME="${GOOS}-amd64${AMD64/v1/}"   # v1 → no suffix; v3 → amd64v3
+                extra_env="GOAMD64=${AMD64}"
+                ;;
+              arm)
+                NAME="${GOOS}-armv${VARIANT}"
+                extra_env="GOARM=${VARIANT}"
+                ;;
+              mips|mipsle)
+                NAME="${GOOS}-${GOARCH}-${VARIANT}"
+                extra_env="GOMIPS=${VARIANT}"
+                ;;
+            esac
+
+            EXT=""
+            [ "$GOOS" = "windows" ] && EXT=".exe"
+            BIN="dist/gost-${NAME}${EXT}"
+
+            echo "▶ building ${NAME}..."
+            env CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" $extra_env \
+              go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" \
+              -o "$BIN" ./cmd/gost
+
+            # Package: .zip for Windows, .tar.gz for everything else
+            if [ "$GOOS" = "windows" ]; then
+              zip -j "dist/gost-${NAME}-${VERSION}.zip" "$BIN"
+            else
+              tar -czf "dist/gost-${NAME}-${VERSION}.tar.gz" -C dist "gost-${NAME}"
+            fi
+            rm -f "$BIN"
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          install-only: true
-      - uses: goreleaser/goreleaser-action@v6
+          name: dist-${{ matrix.group }}
+          path: dist/
+          retention-days: 1
+
+  # ── Merge artifacts and publish release ──────────────────────────────────────
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
-          # either 'goreleaser' (default) or 'goreleaser-pro':
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --clean
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Create GitHub Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Your GoReleaser Pro key, if you are using the 'goreleaser-pro'
-          # distribution:
-          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PREV=$(git tag --sort=-v:refname | grep -v "^${TAG}$" | head -1)
+          {
+            echo "## What's new in ${TAG}"
+            echo ""
+            git log --pretty="- %s" "${PREV}..${TAG}" 2>/dev/null | head -50 || true
+            echo ""
+            echo "See [docs/sings-protocol.md](https://github.com/lovitus/gust-x/blob/main/docs/sings-protocol.md) for full documentation."
+          } > /tmp/release-notes.md
+          gh release create "${TAG}" dist/* \
+            --title "${TAG}" \
+            --notes-file /tmp/release-notes.md \
+            --latest
