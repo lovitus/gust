@@ -1,0 +1,65 @@
+name: go-ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      gust_x_ref:
+        description: gust-x branch to validate with this gust branch
+        required: false
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GO_VERSION: 1.24.5
+    steps:
+      - name: Checkout gust
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Resolve gust-x ref
+        id: gustx
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            ref="${{ github.head_ref }}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${{ github.event.inputs.gust_x_ref }}" ]]; then
+            ref="${{ github.event.inputs.gust_x_ref }}"
+          else
+            ref="${GITHUB_REF_NAME}"
+          fi
+          if git ls-remote --exit-code --heads https://github.com/lovitus/gust-x.git "${ref}" >/dev/null 2>&1; then
+            echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "ref=main" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Checkout gust-x
+        shell: bash
+        run: |
+          git clone --depth 1 --branch "${{ steps.gustx.outputs.ref }}" https://github.com/lovitus/gust-x.git ../gust-x
+
+      - name: Download gust-x modules
+        working-directory: ../gust-x
+        run: go mod download
+
+      - name: Test gust-x
+        working-directory: ../gust-x
+        run: go test ./...
+
+      - name: Download gust modules
+        run: go mod download
+
+      - name: Test gust
+        run: go test ./...
