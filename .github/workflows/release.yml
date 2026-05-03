@@ -25,7 +25,9 @@ jobs:
           cache: true
 
       - name: Checkout gust-x
-        run: git clone --depth 1 --branch main https://github.com/lovitus/gust-x.git ../gust-x
+        run: |
+          git clone --depth 1 --branch main \
+            https://x-access-token:${{ secrets.GH_PAT }}@github.com/lovitus/gust-x.git ../gust-x
 
       - name: Download gust-x modules
         working-directory: ../gust-x
