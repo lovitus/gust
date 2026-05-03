@@ -80,6 +80,8 @@ require (
 	github.com/quic-go/webtransport-go v0.9.0 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/rs/xid v1.3.0 // indirect
+	github.com/sagernet/sing v0.7.18 // indirect
+	github.com/sagernet/sing-shadowsocks v0.2.9 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/shadowsocks/go-shadowsocks2 v0.1.6-0.20241020092332-e1fe9ea73740 // indirect
@@ -128,4 +130,5 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gvisor.dev/gvisor v0.0.0-20250523182742-eede7a881b20 // indirect
+	lukechampine.com/blake3 v1.4.1 // indirect
 )
