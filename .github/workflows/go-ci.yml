@@ -39,17 +39,16 @@ jobs:
           else
             ref="${GITHUB_REF_NAME}"
           fi
-          if git ls-remote --exit-code --heads https://x-access-token:${{ secrets.GH_PAT }}@github.com/lovitus/gust-x.git "${ref}" >/dev/null 2>&1; then
+          if GH_TOKEN="${{ secrets.GH_PAT }}" gh api repos/lovitus/gust-x/git/refs/heads/${ref} >/dev/null 2>&1; then
             echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
           else
             echo "ref=main" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Checkout gust-x
-        shell: bash
-        run: |
-          git clone --depth 1 --branch "${{ steps.gustx.outputs.ref }}" \
-            https://x-access-token:${{ secrets.GH_PAT }}@github.com/lovitus/gust-x.git ../gust-x
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch "${{ steps.gustx.outputs.ref }}"
 
       - name: Download gust-x modules
         working-directory: ../gust-x

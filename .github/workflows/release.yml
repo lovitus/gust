@@ -27,9 +27,9 @@ jobs:
           go-version: '1.26'
           cache: true
       - name: Checkout gust-x
-        run: |
-          git clone --depth 1 --branch main \
-            https://x-access-token:${{ secrets.GH_PAT }}@github.com/lovitus/gust-x.git ../gust-x
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch main
 
       - name: Download gust-x modules
         working-directory: ../gust-x
