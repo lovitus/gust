@@ -26,6 +26,13 @@ jobs:
         with:
           go-version: '1.26'
           cache: true
+      - name: Checkout gust-x
+        run: git clone --depth 1 --branch main https://github.com/lovitus/gust-x.git ../gust-x
+
+      - name: Download gust-x modules
+        working-directory: ../gust-x
+        run: go mod download
+
       # UPX is disabled in .goreleaser.yaml (see #863); the install step was removed.
       - uses: goreleaser/goreleaser-action@v6
         with:

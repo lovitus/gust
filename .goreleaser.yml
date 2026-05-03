@@ -2,10 +2,6 @@ version: 2
 
 project_name: gost
 
-before:
-  hooks:
-    - go mod download
-
 builds:
   # Non-mips targets: covers linux/darwin/freebsd/windows with arm and amd64 variants
   - id: gost-main
