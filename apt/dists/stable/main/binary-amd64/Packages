@@ -5,9 +5,9 @@ Maintainer: gust maintainers <noreply@github.com>
 Installed-Size: 41212
 Filename: pool/main/g/gust/gust_3.2.8_amd64.deb
 Size: 17152780
-MD5sum: d7fcba36b7d3e00d660cc8f4012765d6
-SHA1: 59fe25c0bd32a85e2aeb3390efbbd027f0ca5fe5
-SHA256: 52f81797438d7c1b549670f461b790c57b43fa0497323a5075ba35558d25c34a
+MD5sum: 25e4761f55584012eb05448e5c1497a2
+SHA1: f8ee3a8a673cf67e6e4ed51c35e5841aed79f127
+SHA256: 6bb221742f4f929596df71e10da4c5d0163ade8d1151776ca0fbb5328503aaa4
 Section: utils
 Priority: optional
 Homepage: https://github.com/lovitus/gust
