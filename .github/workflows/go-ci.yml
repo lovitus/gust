@@ -2,6 +2,9 @@ name: go-ci
 
 on:
   push:
+    paths-ignore:
+      - 'Formula/**'
+      - 'bucket/**'
   pull_request:
   workflow_dispatch:
     inputs:
