@@ -1,0 +1,51 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Architectures: amd64 arm64
+Codename: stable
+Components: main
+Date: Tue, 26 May 2026 08:05:49 +0000
+Description: gust stable package repository
+Label: gust
+Origin: gust
+Suite: stable
+MD5Sum:
+ f740c40cbcd406fab88a5079c7d8525e              182 Release
+ 36dec6f2a61bfd35c7ddddce9c3b213b              485 main/binary-amd64/Packages
+ 9f37a00869bdd108748b5408d61cc529              378 main/binary-amd64/Packages.gz
+ 44b18ff4742564ec5b8de2ef4eacf137              485 main/binary-arm64/Packages
+ 6f51e7c2aef853e52c860b005e99dbba              378 main/binary-arm64/Packages.gz
+SHA1:
+ 1ab0b19e80081e64ef6ecadaae5587a85394780d              182 Release
+ d474a773b96c8743025f66868bb4299f3e235ad4              485 main/binary-amd64/Packages
+ 0d66b31b19bc27407e52a749b95f6867a11babb6              378 main/binary-amd64/Packages.gz
+ cde8a07ed9199a80cf905f7f0234e97ed80b2251              485 main/binary-arm64/Packages
+ 9b2e96a6069cc472de847a32c2e4fe83ca469701              378 main/binary-arm64/Packages.gz
+SHA256:
+ 84554f7a465f435d9def55b248f8a5a871a4827ab284aca72b79aa4808b1947d              182 Release
+ beaf1508ffeca3714434585f64cecfbd7d9b69d780080e24a206db40a2198c3e              485 main/binary-amd64/Packages
+ 743d480e221da9d245a63fd616d3f1128f264b5a8d1b1db1dd7c2f56d8140084              378 main/binary-amd64/Packages.gz
+ 2c52bbcdbf9d1f5b8f48ac926417dce688609f6773bab6b3edfea83939fcd3e1              485 main/binary-arm64/Packages
+ 0d7fe4502688f6e73af5fd2cd64c7518f81615714c1fd5e73a1c87f2c9c10c9c              378 main/binary-arm64/Packages.gz
+SHA512:
+ 913ebd81029414b89f4fac913736ad7351dcb4222fc9850c3c81d86d8502c3f32e5ca0596272e181a74cefd6b600b93451145bb7f36e0b6ad928159b5eeea0f7              182 Release
+ ee3ece48d35582bd891d5b4717fa8e47b1238e1731a3fc38d8a91da6ce11f1fccb198b813de5b396809263a8aa8510af131fa3acf4659f411aa01fdc5b3fd266              485 main/binary-amd64/Packages
+ f3b906a45bdf8c73b85ac1ff65e3c1f8d6494e04cd37cfd8caf055188b9a21db98bbc8af6b888b9a917d150cd29f9e25ffb3aa06d73354f03097d0940dc26d93              378 main/binary-amd64/Packages.gz
+ 169c5389d96591c8c5ac59a0d1c5ed912cbdc4bacc04a7d44658607567b1fe535779871aed0c37869f3074c661a6d0cb398703876bba4cf9297d955967608440              485 main/binary-arm64/Packages
+ 56a7cf2450b06f35663ecefb90b66ecb0cdb8f907fdcf42bc720365708fa0f1de9ce1f2bcb7528994a7b53b833700737ce2965368c33a7384887bacd48ac419d              378 main/binary-arm64/Packages.gz
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEE8IswkhXixQ+FdL2ccQ+Gz0NEx+cFAmoVVF0ACgkQcQ+Gz0NE
+x+cYJBAAp+JoB3X7qUxCOUwhkHr6cjJKGGDPxdCylYOFN9id+wBEq+0B0oeXL6u6
+P4GkwiRDQr0Vmr9pzJprO6vpEiAqLU33C4n4qN9PBQb8LBVf/0VMjoMkJ2fYKric
+0/Sqz0difA/5yg37xY8pI1BPUYVopDaEkRwicNgup180ZSmukW8lFqA39K+xWoPy
+VXSkNnIleHH19sSDxWVSisJt2VWciQfaYgIxYtjgPhfrKbwMGkiVzNJkFz1OSIwV
+OeMuE2wGeQZZ3C6jIaRKpZVXSJG95vCPDVAajbMufOzuF+6XSW/pmB6ssaDxNnQ/
+K7rh2L/tyN4bb0fT9MIChZEJwXs9yGAGqdleAEkUDISCaSK2rhniuvNNgyVPfEoI
+Lp1u98+Kcua2RsQb70sMVjnDfI3hAmEe4XPa+55uP3OWbrpvZcG1GCO1LnxMuPW0
+xfsXYhy0wF012KgcTukB2cVzSjsF0HfR69bkoBwRFR/ygoyVJiKAG91WCPCeo8rs
+qGtlmoMHKWf5jeAdEQjefvHhpzxcpByAhwiy7+tiqXwPrhYyWy7cXYyd+mUpsmrf
+LI5YS6sY1h1zG/EkTL1GGA465hK3lyV+cDuyaqWjkiDdGx3LXiY2rK+k07tfdj+a
+3kHUQ8J287z4wJRx7nDgY6NcCJARI+Po1BJvkumFkbGSk7dVJVQ=
+=1YA5
+-----END PGP SIGNATURE-----

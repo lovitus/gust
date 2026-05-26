@@ -1,0 +1,15 @@
+Package: gust
+Version: 3.2.8-1
+Architecture: arm64
+Maintainer: gust maintainers <noreply@github.com>
+Installed-Size: 38080
+Filename: pool/main/g/gust/gust_3.2.8_arm64.deb
+Size: 15759926
+MD5sum: dc5fb605a849c78d79ff7984c12d6fd6
+SHA1: 725962789d40f93e803794d50f1ac978b4875b31
+SHA256: 2bfa13a7dde27b0bbc564717a2daaacfab6475c116d3569417acd6efab5b9073
+Section: utils
+Priority: optional
+Homepage: https://github.com/lovitus/gust
+Description: GOST fork with SSH relay fallback enhancements.
+
