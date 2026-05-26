@@ -50,26 +50,79 @@ Use tunnel and intranet penetration to expose local services behind NAT or firew
 
 ## Installation
 
+### Package managers
+
+Package-manager entries are generated and updated by the next stable tag release. Maintainer release notes are in [RELEASE.md](RELEASE.md).
+
+#### Homebrew (macOS/Linux)
+
+```bash
+brew tap lovitus/gust https://github.com/lovitus/gust
+brew install gust
+gost -V
+```
+
+#### Scoop (Windows)
+
+```powershell
+scoop bucket add gust https://github.com/lovitus/gust
+scoop install gust
+gost -V
+```
+
+#### APT (Debian/Ubuntu amd64/arm64)
+
+```bash
+arch="$(dpkg --print-architecture)"
+case "$arch" in amd64|arm64) ;; *) echo "unsupported APT arch: $arch" >&2; exit 1;; esac
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://lovitus.github.io/gust/apt/gust-archive-keyring.gpg \
+  | sudo tee /etc/apt/keyrings/gust-archive-keyring.gpg >/dev/null
+echo "deb [arch=$arch signed-by=/etc/apt/keyrings/gust-archive-keyring.gpg] https://lovitus.github.io/gust/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/gust.list >/dev/null
+sudo apt update
+sudo apt install gust
+```
+
+#### YUM/DNF (x86_64/aarch64)
+
+```bash
+sudo tee /etc/yum.repos.d/gust.repo >/dev/null <<'EOF'
+[gust]
+name=gust stable repository
+baseurl=https://lovitus.github.io/gust/rpm/$basearch
+enabled=1
+repo_gpgcheck=1
+gpgcheck=0
+gpgkey=https://lovitus.github.io/gust/rpm/RPM-GPG-KEY-gust
+EOF
+
+sudo dnf install gust
+# or: sudo yum install gust
+```
+
+The RPM repository currently signs repository metadata only. Individual RPM packages are not signed yet, so the repo file uses `repo_gpgcheck=1` and `gpgcheck=0`.
+
 ### Binary files
 
-[https://github.com/go-gost/gost/releases](https://github.com/go-gost/gost/releases)
+[https://github.com/lovitus/gust/releases](https://github.com/lovitus/gust/releases)
 
 ### install script
 
 ```bash
-# install latest from [https://github.com/go-gost/gost/releases](https://github.com/go-gost/gost/releases)
-bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh) --install
+# install latest
+bash <(curl -fsSL https://raw.githubusercontent.com/lovitus/gust/master/install.sh) --install
 ```
 ```bash
 # select version for install 
-bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/lovitus/gust/master/install.sh)
 ```
 
 ### From source
 
 ```
-git clone https://github.com/go-gost/gost.git
-cd gost/cmd/gost
+git clone https://github.com/lovitus/gust.git
+cd gust/cmd/gost
 go build
 ```
 

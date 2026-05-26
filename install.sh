@@ -1,103 +1,170 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Check Root User
-
-# If you want to run as another user, please modify $EUID to be owned by this user
-if [[ "$EUID" -ne '0' ]]; then
-    echo "$(tput setaf 1)Error: You must run this script as root!$(tput sgr0)"
+if [[ "${EUID}" -ne 0 ]]; then
+    echo "Error: you must run this script as root."
     exit 1
 fi
 
-# Set the desired GitHub repository
-repo="go-gost/gost"
-base_url="https://api.github.com/repos/$repo/releases"
+repo="lovitus/gust"
+base_url="https://api.github.com/repos/${repo}/releases"
 
-# Function to download and install gost
+usage() {
+    echo "usage: $0 [--install|VERSION]" >&2
+}
+
+detect_os() {
+    case "$(uname -s)" in
+        Linux)
+            echo "linux"
+            ;;
+        Darwin)
+            echo "darwin"
+            ;;
+        FreeBSD)
+            echo "freebsd"
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            echo "windows"
+            ;;
+        *)
+            echo "Unsupported operating system." >&2
+            exit 1
+            ;;
+    esac
+}
+
+detect_arch() {
+    case "$(uname -m)" in
+        x86_64|amd64)
+            echo "amd64"
+            ;;
+        armv5*)
+            echo "armv5"
+            ;;
+        armv6*)
+            echo "armv6"
+            ;;
+        armv7*)
+            echo "armv7"
+            ;;
+        aarch64|arm64)
+            echo "arm64"
+            ;;
+        i386|i686)
+            echo "386"
+            ;;
+        mips64le*)
+            echo "mips64le"
+            ;;
+        mips64*)
+            echo "mips64"
+            ;;
+        mipsle*)
+            echo "mipsle-softfloat"
+            ;;
+        mips*)
+            echo "mips-softfloat"
+            ;;
+        riscv64)
+            echo "riscv64"
+            ;;
+        s390x)
+            echo "s390x"
+            ;;
+        *)
+            echo "Unsupported CPU architecture." >&2
+            exit 1
+            ;;
+    esac
+}
+
+download_asset() {
+    local tag="$1"
+    local os="$2"
+    local arch="$3"
+    local version="${tag#v}"
+    local ext="tar.gz"
+
+    if [[ "${os}" == "windows" ]]; then
+        ext="zip"
+    fi
+
+    local asset="gost-${os}-${arch}-${version}.${ext}"
+    local url="https://github.com/${repo}/releases/download/${tag}/${asset}"
+    local out="$4/${asset}"
+
+    echo "Downloading ${asset}..." >&2
+    curl -fL --retry 3 -o "${out}" "${url}"
+    printf '%s\n' "${out}"
+}
+
 install_gost() {
-    version=$1
-    # Detect the operating system
-    if [[ "$(uname)" == "Linux" ]]; then
-        os="linux"
-    elif [[ "$(uname)" == "Darwin" ]]; then
-        os="darwin"
-    elif [[ "$(uname)" == "MINGW"* ]]; then
-        os="windows"
+    local tag="$1"
+    if [[ "${tag}" != v* ]]; then
+        tag="v${tag}"
+    fi
+
+    local os
+    local arch
+    os="$(detect_os)"
+    arch="$(detect_arch)"
+
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    trap "rm -rf '${tmp_dir}'" EXIT
+
+    local archive
+    archive="$(download_asset "${tag}" "${os}" "${arch}" "${tmp_dir}")"
+
+    if [[ "${archive}" == *.zip ]]; then
+        if ! command -v unzip >/dev/null 2>&1; then
+            echo "Missing required command: unzip" >&2
+            exit 1
+        fi
+        unzip -q "${archive}" -d "${tmp_dir}"
     else
-        echo "Unsupported operating system."
+        tar -xzf "${archive}" -C "${tmp_dir}"
+    fi
+
+    local binary
+    binary="$(find "${tmp_dir}" -maxdepth 1 -type f -name 'gost-*' ! -name '*.tar.gz' ! -name '*.zip' | head -n 1)"
+    if [[ -z "${binary}" ]]; then
+        echo "Downloaded archive did not contain a gost binary." >&2
         exit 1
     fi
 
-    # Detect the CPU architecture
-    arch=$(uname -m)
-    case $arch in
-    x86_64)
-        cpu_arch="amd64"
-        ;;
-    armv5*)
-        cpu_arch="armv5"
-        ;;
-    armv6*)
-        cpu_arch="armv6"
-        ;;
-    armv7*)
-        cpu_arch="armv7"
-        ;;
-    aarch64)
-        cpu_arch="arm64"
-        ;;
-    i686)
-        cpu_arch="386"
-        ;;
-    mips64*)
-        cpu_arch="mips64"
-        ;;
-    mips*)
-        cpu_arch="mips"
-        ;;
-    mipsel*)
-        cpu_arch="mipsle"
-        ;;
-    riscv64)
-        cpu_arch="riscv64"
-        ;;
-    *)
-        echo "Unsupported CPU architecture."
-        exit 1
-        ;;
-    esac
-    get_download_url="$base_url/tags/$version"
-    download_url=$(curl -s "$get_download_url" | grep -Eo "\"browser_download_url\": \".*${os}.*${cpu_arch}.*\"" | awk -F'["]' '{print $4}')
+    local target="/usr/local/bin/gost"
+    if [[ "${os}" == "windows" ]]; then
+        target="/usr/local/bin/gost.exe"
+    fi
 
-    # Download the binary
-    echo "Downloading gost version $version..."
-    curl -fsSL -o gost.tar.gz $download_url
-
-    # Extract and install the binary
-    echo "Installing gost..."
-    tar -xzf gost.tar.gz
-    chmod +x gost
-    mv gost /usr/local/bin/gost
-
-    echo "gost installation completed!"
+    echo "Installing ${target}..."
+    install -m 0755 "${binary}" "${target}"
+    echo "gost ${tag} installed successfully."
 }
 
-# Retrieve available versions from GitHub API
-versions=$(curl -s "$base_url" | grep -oP 'tag_name": "\K[^"]+')
+versions="$(curl -fsSL "${base_url}" | sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p')"
 
-# Check if --install option provided
-if [[ "$1" == "--install" ]]; then
-    # Install the latest version automatically
-    latest_version=$(echo "$versions" | head -n 1)
-    install_gost $latest_version
-else
-    # Display available versions to the user
-    echo "Available gost versions:"
-    select version in $versions; do
-        if [[ -n $version ]]; then
-            install_gost $version
+if [[ "${1:-}" == "--install" ]]; then
+    latest_version="$(printf '%s\n' "${versions}" | head -n 1)"
+    if [[ -z "${latest_version}" ]]; then
+        echo "No releases found for ${repo}." >&2
+        exit 1
+    fi
+    install_gost "${latest_version}"
+elif [[ $# -eq 1 ]]; then
+    install_gost "$1"
+elif [[ $# -eq 0 ]]; then
+    echo "Available gust versions:"
+    select version in ${versions}; do
+        if [[ -n "${version:-}" ]]; then
+            install_gost "${version}"
             break
-        else
-            echo "Invalid choice! Please select a valid option."
         fi
+        echo "Invalid choice. Please select a valid version."
     done
+else
+    usage
+    exit 2
 fi

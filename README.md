@@ -67,26 +67,79 @@ GOST作为隧道有三种主要使用方式。
 
 ## 下载安装
 
+### 包管理器
+
+包管理器入口会在下一个稳定 tag 发布后自动生成和更新；维护者发布流程见 [RELEASE.md](RELEASE.md)。
+
+#### Homebrew (macOS/Linux)
+
+```bash
+brew tap lovitus/gust https://github.com/lovitus/gust
+brew install gust
+gost -V
+```
+
+#### Scoop (Windows)
+
+```powershell
+scoop bucket add gust https://github.com/lovitus/gust
+scoop install gust
+gost -V
+```
+
+#### APT (Debian/Ubuntu amd64/arm64)
+
+```bash
+arch="$(dpkg --print-architecture)"
+case "$arch" in amd64|arm64) ;; *) echo "unsupported APT arch: $arch" >&2; exit 1;; esac
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://lovitus.github.io/gust/apt/gust-archive-keyring.gpg \
+  | sudo tee /etc/apt/keyrings/gust-archive-keyring.gpg >/dev/null
+echo "deb [arch=$arch signed-by=/etc/apt/keyrings/gust-archive-keyring.gpg] https://lovitus.github.io/gust/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/gust.list >/dev/null
+sudo apt update
+sudo apt install gust
+```
+
+#### YUM/DNF (x86_64/aarch64)
+
+```bash
+sudo tee /etc/yum.repos.d/gust.repo >/dev/null <<'EOF'
+[gust]
+name=gust stable repository
+baseurl=https://lovitus.github.io/gust/rpm/$basearch
+enabled=1
+repo_gpgcheck=1
+gpgcheck=0
+gpgkey=https://lovitus.github.io/gust/rpm/RPM-GPG-KEY-gust
+EOF
+
+sudo dnf install gust
+# 或: sudo yum install gust
+```
+
+RPM 源当前签名的是仓库 metadata，暂不对单个 RPM 包签名，因此 repo 配置中使用 `repo_gpgcheck=1` 和 `gpgcheck=0`。
+
 ### 二进制文件
 
-[https://github.com/go-gost/gost/releases](https://github.com/go-gost/gost/releases)
+[https://github.com/lovitus/gust/releases](https://github.com/lovitus/gust/releases)
 
 ### 安装脚本
 
 ```bash
-# 安装最新版本 [https://github.com/go-gost/gost/releases](https://github.com/go-gost/gost/releases)
-bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh) --install
+# 安装最新版本
+bash <(curl -fsSL https://raw.githubusercontent.com/lovitus/gust/master/install.sh) --install
 ```
 ```bash
 # 选择要安装的版本
-bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/lovitus/gust/master/install.sh)
 ```
 
 ### 源码编译
 
 ```
-git clone https://github.com/go-gost/gost.git
-cd gost/cmd/gost
+git clone https://github.com/lovitus/gust.git
+cd gust/cmd/gost
 go build
 ```
 
