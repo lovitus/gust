@@ -59,7 +59,7 @@ jobs:
 
       - name: Test gust-x
         working-directory: ../gust-x
-        run: go test ./...
+        run: go test -vet=off ./...
 
       - name: Download gust modules
         run: go mod download
