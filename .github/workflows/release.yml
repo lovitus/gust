@@ -56,7 +56,7 @@ jobs:
           (cd ../gust-x && go mod download)
 
       - name: Install garble
-        run: go install mvdan.cc/garble@latest
+        run: go install mvdan.cc/garble@v0.15.0
 
       - name: Build targets
         shell: bash
