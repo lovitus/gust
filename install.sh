@@ -147,9 +147,11 @@ install_gost() {
 versions="$(curl -fsSL "${base_url}" | sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p')"
 
 if [[ "${1:-}" == "--install" ]]; then
-    latest_version="$(printf '%s\n' "${versions}" | head -n 1)"
+    # Use /releases/latest to honour GitHub's stable-release semantics and
+    # avoid picking a prerelease as the default.
+    latest_version="$(curl -fsSL "${base_url}/latest" | sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p')"
     if [[ -z "${latest_version}" ]]; then
-        echo "No releases found for ${repo}." >&2
+        echo "No stable release found for ${repo}." >&2
         exit 1
     fi
     install_gost "${latest_version}"
