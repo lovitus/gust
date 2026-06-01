@@ -51,7 +51,12 @@ jobs:
           cache: true
 
       - name: Download modules
-        run: go mod download
+        run: |
+          go mod download
+          (cd ../gust-x && go mod download)
+
+      - name: Install garble
+        run: go install mvdan.cc/garble@latest
 
       - name: Build targets
         shell: bash
@@ -98,11 +103,11 @@ jobs:
             fi
             rm -f "$BIN"
 
-            # Build portyd (standalone porty server) from gust-x
+            # Build portyd (standalone porty server) from gust-x using garble
             PORTYD_BIN="dist/portyd-${NAME}${EXT}"
             echo "building portyd-${NAME}..."
             (cd ../gust-x && env CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" $extra_env \
-              go build -trimpath -ldflags="-s -w" \
+              garble -tiny -seed=random build -trimpath \
               -o "$GITHUB_WORKSPACE/$PORTYD_BIN" ./cmd/portyd)
 
             if [[ "$GOOS" == "windows" ]]; then
