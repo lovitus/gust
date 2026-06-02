@@ -287,7 +287,7 @@ jobs:
               git log --pretty="- %s" "${TAG}" 2>/dev/null | head -50 || true
             fi
             echo ""
-            echo "See [docs/sings-protocol.md](https://github.com/lovitus/gust-x/blob/main/docs/sings-protocol.md) for full documentation."
+            echo "See [docs/porty.md](https://github.com/lovitus/gust-x/blob/main/docs/porty.md) for full documentation."
           } > /tmp/release-notes.md
 
       - name: Create or update GitHub Release
