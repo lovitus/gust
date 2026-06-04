@@ -5,13 +5,14 @@
 
 ## Additional Features (vs upstream)
 
+- **Porty Stealth Port Forwarding** - Disguises TCP port forwarding as normal HTTPS/WebSocket traffic with AEAD authentication, smux session caching, multi-port mixed-role sessions, optional P2P direct mode, and the standalone `portyd` server.
 - **SSH Relay Fallback** - When SSH server disables TCP forwarding (`AllowTcpForwarding=no`), automatically falls back through multiplexed relay, embedded relay binary, or exec-based tools (nc/socat/perl/python/bash). Original direct-tcpip is always prioritized.
 - **Multiplexed Relay** - Single SSH exec session handles unlimited TCP connections via mux protocol, bypassing `MaxSessions` limits.
 - **Smart Relay Upload** - Embedded relay binary auto-uploaded to remote server, hash-cached (only transferred once per binary version).
 - **Escape-Based Passwords** - Supports backslash escapes and quotes in inline passwords (backward compatible with URL encoding).
 - **Cross-Platform Builds** - Pre-built binaries for 23 platform/arch combinations with UPX compression.
 
-See [FORK_CHANGES.md](FORK_CHANGES.md) for detailed technical documentation and upstream merge notes.
+See [FORK_CHANGES.md](FORK_CHANGES.md) for detailed technical documentation and upstream merge notes. Full Porty documentation lives in [gust-x docs/porty.md](https://github.com/lovitus/gust-x/blob/main/docs/porty.md).
 
 ---
 
