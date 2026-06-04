@@ -1,6 +1,6 @@
 # Release and Package Manager Publishing
 
-This repository publishes normal GitHub Release assets for every `v*` tag. Package-manager channels are stricter: Homebrew, Scoop, APT, and RPM repositories are updated only for stable tags matching `^v[0-9]+\.[0-9]+\.[0-9]+$`.
+This repository publishes normal GitHub Release assets for every `v*` tag. Release assets include the main `gost` binary and the standalone `portyd` server built from `lovitus/gust-x`. Package-manager channels are stricter: Homebrew, Scoop, APT, and RPM repositories are updated only for stable tags matching `^v[0-9]+\.[0-9]+\.[0-9]+$`.
 
 ## Release Types
 
