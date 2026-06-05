@@ -2,6 +2,10 @@
 
 This repository publishes normal GitHub Release assets for every `v*` tag. Release assets include the main `gost` binary and the standalone `portyd` server built from `lovitus/gust-x`. Package-manager channels are stricter: Homebrew, Scoop, APT, and RPM repositories are updated only for stable tags matching `^v[0-9]+\.[0-9]+\.[0-9]+$`.
 
+Current suffix releases such as `v3.2.9-porty7` are prereleases. They publish
+normal GitHub Release archives for `gost` and `portyd`, but they do not update
+Homebrew, Scoop, APT, or RPM package-manager channels.
+
 ## Release Types
 
 - Stable tags such as `v3.2.8` are marked as latest and update package-manager channels.
