@@ -5,7 +5,7 @@
 
 ## Additional Features (vs upstream)
 
-- **Porty Stealth Port Forwarding** - Disguises TCP port forwarding as normal HTTPS/WebSocket traffic with AEAD authentication, smux session caching, multi-port mixed-role sessions, optional P2P direct mode, and the standalone `portyd` server.
+- **Porty Stealth Port Forwarding** - Disguises TCP port forwarding as normal HTTPS/WebSocket traffic with AEAD authentication, smux session caching, multi-port mixed-role sessions, optional P2P direct mode, dynamic `bindpath` WS bridge for Mihomo/iOS, and the standalone `portyd` server.
 - **SSH Relay Fallback** - When SSH server disables TCP forwarding (`AllowTcpForwarding=no`), automatically falls back through multiplexed relay, embedded relay binary, or exec-based tools (nc/socat/perl/python/bash). Original direct-tcpip is always prioritized.
 - **Multiplexed Relay** - Single SSH exec session handles unlimited TCP connections via mux protocol, bypassing `MaxSessions` limits.
 - **Smart Relay Upload** - Embedded relay binary auto-uploaded to remote server, hash-cached (only transferred once per binary version).
