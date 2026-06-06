@@ -24,6 +24,20 @@ Porty provides:
    reach a provider-side local backend without adding Trojan/VLESS/SS decoding
    to `portyd`.
 
+### sings + Mihomo smux
+`sings` integrates sing-shadowsocks for TCP, UoT (UDP-over-TCP), and AEAD 2022
+ciphers. It now also accepts sing-box/Mihomo common `smux` TCP multiplexing on
+the standard `sp.mux.sing-box.arpa:444` destination. This lets Mihomo reuse a
+small number of TCP/WSS connections when `sings` is exposed through Porty
+dynamic `bindpath`.
+
+Operational notes:
+1. Use Mihomo top-level `smux` with `protocol: smux`, `only-tcp: true`, and
+   `padding: false`.
+2. Keep `gost-plugin` `plugin-opts.mux=false`; that setting is not sing-mux.
+3. UDP/UoT still uses separate SS TCP connections and is not controlled by
+   `smux.max-connections`.
+
 Full protocol and deployment documentation:
 https://github.com/lovitus/gust-x/blob/main/docs/porty.md
 
@@ -42,6 +56,8 @@ Supports backslash escapes and quotes in inline passwords, backward compatible w
 - internal/util/porty - Porty core protocol, session routing, P2P peering, and tests
 - internal/util/ws/coalesce.go - Optional WebSocket write coalescing
 - cmd/portyd/main.go - Dynamic bindpath bridge before disguise/proxy handling
+- handler/sings - sing-shadowsocks TCP/UoT handler with sing-mux smux support
+- internal/util/singmux - Minimal sing-mux wire codec for session/stream framing
 - connector/sshd/connector.go - Use DialOrExec instead of direct Dial
 - config/cmd/cmd.go - Preprocess userinfo for escape/quote parsing
 - internal/util/ssh/session.go - Cleanup relay state on close
