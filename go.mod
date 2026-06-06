@@ -8,7 +8,7 @@ replace github.com/go-gost/x => ../gust-x
 
 require (
 	github.com/go-gost/core v0.3.3
-	github.com/go-gost/x v0.8.1
+	github.com/go-gost/x v0.8.2
 	github.com/judwhite/go-svc v1.2.1
 )
 
@@ -82,6 +82,7 @@ require (
 	github.com/rs/xid v1.3.0 // indirect
 	github.com/sagernet/sing v0.7.18 // indirect
 	github.com/sagernet/sing-shadowsocks v0.2.9 // indirect
+	github.com/sagernet/smux v1.5.50-sing-box-mod.1 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/shadowsocks/go-shadowsocks2 v0.1.6-0.20241020092332-e1fe9ea73740 // indirect
