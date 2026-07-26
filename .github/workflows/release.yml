@@ -47,7 +47,7 @@ jobs:
           gh repo clone lovitus/gust-x ../gust-x -- \
             --depth 1 --branch codex/gost-udp-first-packet
           test "$(git -C ../gust-x rev-parse HEAD)" = \
-            "e6860b3af596470e6df07831ed7e42480f06cfa3"
+            "e6860b3382877ba7ec4b6fc298fbee4e785ba489"
 
       - uses: actions/setup-go@v5
         with:
