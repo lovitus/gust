@@ -44,8 +44,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          gh repo clone lovitus/gust-x ../gust-x
-          git -C ../gust-x checkout e6860b3af596470e6df07831ed7e42480f06cfa3
+          gh repo clone lovitus/gust-x ../gust-x -- \
+            --depth 1 --branch codex/gost-udp-first-packet
+          test "$(git -C ../gust-x rev-parse HEAD)" = \
+            "e6860b3af596470e6df07831ed7e42480f06cfa3"
 
       - uses: actions/setup-go@v5
         with:
