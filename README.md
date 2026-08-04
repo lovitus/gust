@@ -11,6 +11,7 @@
 - **Multiplexed Relay** - Single SSH exec session handles unlimited TCP connections via mux protocol, bypassing `MaxSessions` limits.
 - **Smart Relay Upload** - Embedded relay binary auto-uploaded to remote server, hash-cached (only transferred once per binary version).
 - **Escape-Based Passwords** - Supports backslash escapes and quotes in inline passwords (backward compatible with URL encoding).
+- **SOCKS5 UDP First-Packet Pinning** - Supports split TCP/UDP source paths with opt-in first-packet source locking.
 - **Cross-Platform Builds** - Pre-built binaries for 23 platform/architecture combinations.
 
 See [FORK_CHANGES.md](FORK_CHANGES.md) for detailed technical documentation and upstream merge notes. Full Porty and sings documentation lives in [gust-x docs/porty.md](https://github.com/lovitus/gust-x/blob/main/docs/porty.md) and [gust-x docs/sings-protocol.md](https://github.com/lovitus/gust-x/blob/main/docs/sings-protocol.md).

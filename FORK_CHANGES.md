@@ -51,6 +51,11 @@ When SSH server disables TCP forwarding (AllowTcpForwarding=no), automatically f
 ### Escape-Based Password Parsing
 Supports backslash escapes and quotes in inline passwords, backward compatible with URL encoding.
 
+### SOCKS5 UDP First-Packet Source Pinning
+`udpSourceCheck=first-packet` supports deployments where the TCP control
+connection and UDP datagrams arrive from different source IPs, while pinning
+the first UDP source IP and port for the rest of the association.
+
 ## Modified Files in go-gost/x
 - dialer/connector/listener/handler/porty - Porty protocol registration and integration
 - internal/util/porty - Porty core protocol, session routing, P2P peering, and tests
