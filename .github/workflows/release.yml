@@ -69,24 +69,25 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p dist
 
-          for target in ${{ matrix.targets }}; do
+          read -r -a targets <<< "${{ matrix.targets }}"
+          for target in "${targets[@]}"; do
             IFS='/' read -r GOOS GOARCH VARIANT <<< "$target"
 
             NAME="${GOOS}-${GOARCH}"
-            extra_env=""
+            build_env=("CGO_ENABLED=0" "GOOS=${GOOS}" "GOARCH=${GOARCH}")
             case "$GOARCH" in
               amd64)
                 AMD64="${VARIANT:-v1}"
                 NAME="${GOOS}-amd64${AMD64/v1/}"
-                extra_env="GOAMD64=${AMD64}"
+                build_env+=("GOAMD64=${AMD64}")
                 ;;
               arm)
                 NAME="${GOOS}-armv${VARIANT}"
-                extra_env="GOARM=${VARIANT}"
+                build_env+=("GOARM=${VARIANT}")
                 ;;
               mips|mipsle)
                 NAME="${GOOS}-${GOARCH}-${VARIANT}"
-                extra_env="GOMIPS=${VARIANT}"
+                build_env+=("GOMIPS=${VARIANT}")
                 ;;
             esac
 
@@ -95,7 +96,7 @@ jobs:
             BIN="dist/gost-${NAME}${EXT}"
 
             echo "building ${NAME}..."
-            env CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" $extra_env \
+            env "${build_env[@]}" \
               go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" \
               -o "$BIN" ./cmd/gost
 
@@ -109,7 +110,7 @@ jobs:
             # Build portyd (standalone porty server) from gust-x
             PORTYD_BIN="dist/portyd-${NAME}${EXT}"
             echo "building portyd-${NAME}..."
-            (cd ../gust-x && env CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" $extra_env \
+            (cd ../gust-x && env "${build_env[@]}" \
               go build -trimpath -ldflags="-s -w" \
               -o "$GITHUB_WORKSPACE/$PORTYD_BIN" ./cmd/portyd)
 
@@ -157,11 +158,13 @@ jobs:
             MAKE_LATEST=false
           fi
 
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "stable=${STABLE}" >> "$GITHUB_OUTPUT"
-          echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
-          echo "make_latest=${MAKE_LATEST}" >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=${TAG}"
+            echo "version=${VERSION}"
+            echo "stable=${STABLE}"
+            echo "prerelease=${PRERELEASE}"
+            echo "make_latest=${MAKE_LATEST}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Preflight package signing secrets
         if: ${{ steps.meta.outputs.stable == 'true' }}
@@ -252,7 +255,7 @@ jobs:
           set -euo pipefail
           (
             cd dist
-            sha256sum * > checksums.txt
+            sha256sum -- ./* > checksums.txt
           )
 
       - name: Checkout master for package manifests

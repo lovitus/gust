@@ -39,7 +39,8 @@ if [[ "${version}" == v* ]]; then
   exit 1
 fi
 if ! command -v nfpm >/dev/null 2>&1; then
-  export PATH="$(go env GOPATH)/bin:${PATH}"
+  go_path="$(go env GOPATH)"
+  export PATH="${go_path}/bin:${PATH}"
 fi
 if ! command -v nfpm >/dev/null 2>&1; then
   echo "missing required command: nfpm" >&2

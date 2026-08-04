@@ -8,6 +8,7 @@ fi
 
 repo="lovitus/gust"
 base_url="https://api.github.com/repos/${repo}/releases"
+tmp_dir=""
 
 usage() {
     echo "usage: $0 [--install|VERSION]" >&2
@@ -110,9 +111,8 @@ install_gost() {
     os="$(detect_os)"
     arch="$(detect_arch)"
 
-    local tmp_dir
     tmp_dir="$(mktemp -d)"
-    trap "rm -rf '${tmp_dir}'" EXIT
+    trap 'if [[ -n "${tmp_dir}" ]]; then rm -rf -- "${tmp_dir}"; fi' EXIT
 
     local archive
     archive="$(download_asset "${tag}" "${os}" "${arch}" "${tmp_dir}")"

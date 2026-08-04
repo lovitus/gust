@@ -34,15 +34,19 @@ jobs:
       - name: Resolve gust-x ref
         id: gustx
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+          INPUT_GUST_X_REF: ${{ github.event.inputs.gust_x_ref }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            ref="${{ github.head_ref }}"
-          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${{ github.event.inputs.gust_x_ref }}" ]]; then
-            ref="${{ github.event.inputs.gust_x_ref }}"
+            ref="${PR_HEAD_REF}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_GUST_X_REF}" ]]; then
+            ref="${INPUT_GUST_X_REF}"
           else
             ref="${GITHUB_REF_NAME}"
           fi
-          if GH_TOKEN="${{ secrets.GH_PAT }}" gh api repos/lovitus/gust-x/git/refs/heads/${ref} >/dev/null 2>&1; then
+          if gh api "repos/lovitus/gust-x/git/refs/heads/${ref}" >/dev/null 2>&1; then
             echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
           else
             echo "ref=main" >> "${GITHUB_OUTPUT}"
