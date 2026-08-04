@@ -100,7 +100,13 @@ jobs:
         run: |
           set -euo pipefail
           tags="$(bash .github/scripts/singbox-tags.sh)"
-          (cd ../gust-x && go test -tags "${tags}" ./backend/singbox)
+          (cd ../gust-x && go test -p 1 -race -tags "${tags}" \
+            ./backend/singbox \
+            ./config/cmd/singboxuri \
+            ./config/cmd \
+            ./chain \
+            ./config/parsing/node \
+            ./hop)
 
       - name: Verify Linux purego Naive runtime
         shell: bash
