@@ -4,6 +4,19 @@ Based on upstream: go-gost/gost `c7d793c619e3690f091dd98ac9b4085e212db26f` + go-
 
 ## New Features
 
+### Optional embedded sing-box flavor (in development)
+The `codex/singbox-backend` work adds separate `standard` and `singbox` build
+flavors. Standard builds report `flavor=standard` and are checked to contain no
+`github.com/sagernet/sing-box` module; tagged builds report the pinned sing-box
+version and feature set. CI smoke-tests both flavors and a scheduled
+compatibility workflow continuously compiles against the pinned and latest
+stable sing-box releases.
+
+The CLI can already parse `*+singbox://` node URIs into structured connector
+metadata for `-O`, including inline/file/base64 JSON, full-config tag selection,
+nested paths, exact JSON values and URL-safe secret handling. Runtime chain
+transport integration is still under development on the feature branch.
+
 ### Porty Stealth Port Forwarding
 `gust` registers the `porty` listener/handler/dialer/connector from `gust-x` and
 the release workflow builds both `gost` and the standalone `portyd` server.

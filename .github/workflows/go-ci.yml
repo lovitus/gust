@@ -81,3 +81,44 @@ jobs:
           -timeout 30m
           -skip '^(TestFileSuite|TestHTTPCacheSuite|TestMTLSSuite|TestSniffingSuite)$'
           ./...
+
+      - name: Verify pinned sing-box version
+        shell: bash
+        run: |
+          set -euo pipefail
+          module_version="$(cd ../gust-x && go list -m -f '{{.Version}}' github.com/sagernet/sing-box)"
+          source_version="$(sed -n 's/.*PinnedVersion = "\([^"]*\)".*/\1/p' ../gust-x/backend/singbox/backend.go)"
+          test -n "${source_version}"
+          if [[ "${module_version}" != "${source_version}" ]]; then
+            echo "sing-box version mismatch: go.mod=${module_version}, source=${source_version}" >&2
+            exit 1
+          fi
+
+      - name: Test embedded sing-box backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          tags="$(bash .github/scripts/singbox-tags.sh)"
+          (cd ../gust-x && go test -tags "${tags}" ./backend/singbox)
+
+      - name: Verify standard and singbox flavors
+        shell: bash
+        run: |
+          set -euo pipefail
+          tags="$(bash .github/scripts/singbox-tags.sh)"
+          standard_bin="${RUNNER_TEMP}/gust-standard"
+          singbox_bin="${RUNNER_TEMP}/gust-with-singbox"
+
+          go build -trimpath -o "${standard_bin}" ./cmd/gost
+          go build -trimpath -tags "${tags}" -o "${singbox_bin}" ./cmd/gost
+
+          "${standard_bin}" -V | tee "${RUNNER_TEMP}/standard-version.txt"
+          "${singbox_bin}" -V | tee "${RUNNER_TEMP}/singbox-version.txt"
+          grep -F 'flavor=standard' "${RUNNER_TEMP}/standard-version.txt"
+          grep -F 'flavor=singbox' "${RUNNER_TEMP}/singbox-version.txt"
+
+          if go version -m "${standard_bin}" | grep -F $'github.com/sagernet/sing-box\t'; then
+            echo 'standard binary unexpectedly links sing-box' >&2
+            exit 1
+          fi
+          go version -m "${singbox_bin}" | grep -F $'github.com/sagernet/sing-box\t'

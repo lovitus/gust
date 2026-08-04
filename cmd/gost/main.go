@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -108,8 +107,7 @@ func init() {
 	flag.Parse()
 
 	if printVersion {
-		fmt.Fprintf(os.Stdout, "gost %s (%s %s/%s)\n",
-			version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+		printBuildInfo(os.Stdout)
 		os.Exit(0)
 	}
 }

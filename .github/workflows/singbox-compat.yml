@@ -1,0 +1,82 @@
+name: sing-box compatibility
+
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      singbox_version:
+        description: sing-box version to test (for example v1.13.16 or latest)
+        required: false
+        default: latest
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    name: ${{ matrix.version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [pinned, latest]
+    env:
+      GO_VERSION: 1.26.3
+    steps:
+      - name: Checkout gust
+        uses: actions/checkout@v4
+
+      - name: Checkout gust-x
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch master
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Resolve target version
+        id: version
+        shell: bash
+        env:
+          MATRIX_VERSION: ${{ matrix.version }}
+          INPUT_VERSION: ${{ inputs.singbox_version }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == workflow_dispatch && "${MATRIX_VERSION}" == latest && -n "${INPUT_VERSION}" ]]; then
+            requested="${INPUT_VERSION}"
+          else
+            requested="${MATRIX_VERSION}"
+          fi
+
+          if [[ "${requested}" == pinned ]]; then
+            resolved="$(cd ../gust-x && go list -m -f '{{.Version}}' github.com/sagernet/sing-box)"
+          else
+            resolved="$(cd ../gust-x && go list -m -f '{{.Version}}' "github.com/sagernet/sing-box@${requested}")"
+          fi
+          echo "resolved=${resolved}" >> "${GITHUB_OUTPUT}"
+          echo "Testing sing-box ${resolved}"
+
+      - name: Select sing-box version
+        if: ${{ matrix.version == 'latest' }}
+        working-directory: ../gust-x
+        shell: bash
+        run: |
+          set -euo pipefail
+          go get "github.com/sagernet/sing-box@${{ steps.version.outputs.resolved }}"
+          go get "github.com/sagernet/sing-box/include@${{ steps.version.outputs.resolved }}"
+          go mod tidy
+
+      - name: Compile and smoke-test backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          tags="$(bash .github/scripts/singbox-tags.sh)"
+          (cd ../gust-x && go test -tags "${tags}" -run '^(TestNativeValidationRejectsUnknownFieldWithoutLeakingSecret|TestEmptyBoxLifecycle|TestFullManifest)$' ./backend/singbox)
+          (cd ../gust-x && go test ./connector/sings ./connector/singsu ./handler/sings ./handler/singsu)
+          go mod tidy
+          go build -trimpath -tags "${tags}" -o "${RUNNER_TEMP}/gust-with-singbox" ./cmd/gost
+          "${RUNNER_TEMP}/gust-with-singbox" -V
