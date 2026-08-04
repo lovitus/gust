@@ -49,7 +49,7 @@ jobs:
       - name: Checkout gust-x
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch main
+        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch master
 
       - uses: actions/setup-go@v5
         with:
@@ -296,7 +296,7 @@ jobs:
               git log --pretty="- %s" "${TAG}" 2>/dev/null | head -50 || true
             fi
             echo ""
-            echo "See [docs/porty.md](https://github.com/lovitus/gust-x/blob/main/docs/porty.md) for full documentation."
+            echo "See [docs/porty.md](https://github.com/lovitus/gust-x/blob/master/docs/porty.md) for full documentation."
           } > /tmp/release-notes.md
 
       - name: Create or update GitHub Release

@@ -11,7 +11,7 @@ on:
       gust_x_ref:
         description: gust-x branch to validate with this gust branch
         required: false
-        default: main
+        default: master
 
 permissions:
   contents: read
@@ -49,7 +49,7 @@ jobs:
           if gh api "repos/lovitus/gust-x/git/refs/heads/${ref}" >/dev/null 2>&1; then
             echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
           else
-            echo "ref=main" >> "${GITHUB_OUTPUT}"
+            echo "ref=master" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Checkout gust-x
