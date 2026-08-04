@@ -39,7 +39,7 @@ Operational notes:
    `smux.max-connections`.
 
 Full protocol and deployment documentation:
-https://github.com/lovitus/gust-x/blob/main/docs/porty.md
+https://github.com/lovitus/gust-x/blob/master/docs/porty.md
 
 ### SSH Relay Fallback
 When SSH server disables TCP forwarding (AllowTcpForwarding=no), automatically falls back through:
