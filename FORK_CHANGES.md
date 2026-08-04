@@ -4,7 +4,7 @@ Based on upstream: go-gost/gost `c7d793c619e3690f091dd98ac9b4085e212db26f` + go-
 
 ## New Features
 
-### Optional embedded sing-box flavor (in development)
+### Optional embedded sing-box flavor
 The `codex/singbox-backend` work adds separate `standard` and `singbox` build
 flavors. Standard builds report `flavor=standard` and are checked to contain no
 `github.com/sagernet/sing-box` module; tagged builds report the pinned sing-box
@@ -15,8 +15,17 @@ stable sing-box releases.
 The CLI can parse `*+singbox://` node URIs into structured connector
 metadata for `-O`, including inline/file/base64 JSON, full-config tag selection,
 nested paths, exact JSON values and URL-safe secret handling. Runtime chain
-integration supports self-dialing first-hop TCP/UDP and fails closed when a
-not-yet-supported GOST prefix route would otherwise permit a direct bypass.
+integration supports request-scoped GOST prefix routes, multi-level self-dialing
+nodes, native typed option validation, full config dependency graphs and a
+content-hash/singleflight/refcount runtime pool. Prefix failures are fail-closed;
+selector/urltest background activity keeps the original config network semantics.
+Configuration-file metadata supports nested options and json/config references.
+
+The initial `gust-with-singbox` release target is Linux amd64. It uses the
+upstream pure-Go Cronet loader and bundles `libcronet.so` for Naive. Each archive
+contains a feature manifest, exact source refs, GPLv3 text and upstream license
+notices. Full usage and lifecycle documentation is in
+https://github.com/lovitus/gust-x/blob/master/docs/singbox.md.
 
 ### Porty Stealth Port Forwarding
 `gust` registers the `porty` listener/handler/dialer/connector from `gust-x` and

@@ -131,6 +131,7 @@ jobs:
             "${singbox_bin}" -L 'http://127.0.0.1:18888' -F 'direct+singbox://' >"${RUNNER_TEMP}/singbox-e2e.log" 2>&1
           ) &
           gust_pid=$!
+          # shellcheck disable=SC2329 # invoked by trap
           cleanup() {
             kill "${gust_pid}" "${echo_pid}" 2>/dev/null || true
             wait "${gust_pid}" "${echo_pid}" 2>/dev/null || true

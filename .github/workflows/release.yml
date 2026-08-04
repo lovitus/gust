@@ -129,9 +129,95 @@ jobs:
           path: dist/
           retention-days: 1
 
+  build-singbox:
+    name: build / singbox-linux-amd64
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout gust-x
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch master
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build and package singbox flavor
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${GITHUB_REF_NAME#v}"
+          tags="$(bash .github/scripts/singbox-tags.sh)"
+          archive_root="gust-with-singbox-linux-amd64"
+          stage="dist/${archive_root}"
+          mkdir -p "${stage}"
+
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -trimpath -tags "${tags}" \
+            -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" \
+            -o "${stage}/gust-with-singbox" ./cmd/gost
+
+          "${stage}/gust-with-singbox" -V | tee "${stage}/version.txt"
+          grep -F 'flavor=singbox' "${stage}/version.txt"
+
+          singbox_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/sing-box)"
+          cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
+          cp "${singbox_dir}/LICENSE" "${stage}/sing-box-LICENSE"
+          cp "${cronet_dir}/LICENSE" "${stage}/cronet-go-LICENSE"
+          cp "${cronet_dir}/libcronet.so" "${stage}/libcronet.so"
+          cp SINGBOX-NOTICE.md "${stage}/SINGBOX-NOTICE.md"
+          curl --fail --silent --show-error --location \
+            https://www.gnu.org/licenses/gpl-3.0.txt \
+            -o "${stage}/GPL-3.0.txt"
+          echo '3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986  '"${stage}/GPL-3.0.txt" \
+            | sha256sum --check
+
+          GUST_COMMIT="$(git rev-parse HEAD)"
+          GUST_X_COMMIT="$(git -C ../gust-x rev-parse HEAD)"
+          GO_BUILD_VERSION="$(go env GOVERSION)"
+          export GUST_COMMIT GUST_X_COMMIT GO_BUILD_VERSION
+          export SINGBOX_TAGS="${tags}"
+          python3 - <<'PY' > "${stage}/feature-manifest.json"
+          import json
+          import os
+
+          print(json.dumps({
+              "flavor": "singbox",
+              "singBoxVersion": "v1.13.16",
+              "goVersion": os.environ["GO_BUILD_VERSION"],
+              "goos": "linux",
+              "goarch": "amd64",
+              "buildTags": os.environ["SINGBOX_TAGS"].split(","),
+              "gustCommit": os.environ["GUST_COMMIT"],
+              "gustXCommit": os.environ["GUST_X_COMMIT"],
+              "runtimeFiles": ["gust-with-singbox", "libcronet.so"],
+              "unavailableFeatures": [
+                  "badlinkname",
+                  "tfogo_checklinkname0",
+                  "release targets other than linux/amd64",
+              ],
+          }, indent=2, sort_keys=True))
+          PY
+
+          tar -czf "dist/${archive_root}-${version}.tar.gz" -C dist "${archive_root}"
+          rm -rf "${stage}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-singbox-linux-amd64
+          path: dist/*.tar.gz
+          retention-days: 1
+
   release:
     name: publish release
-    needs: build
+    needs: [build, build-singbox]
     runs-on: ubuntu-latest
     steps:
       - name: Resolve release metadata
