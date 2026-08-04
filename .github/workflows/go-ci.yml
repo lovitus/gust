@@ -171,3 +171,67 @@ jobs:
           done
           cat "${RUNNER_TEMP}/singbox-e2e.log" >&2
           exit 1
+
+  singbox-cross-build:
+    name: singbox cross-build / ${{ matrix.goos }}-${{ matrix.goarch }}
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+    env:
+      GO_VERSION: 1.26.3
+    steps:
+      - name: Checkout gust
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Resolve and checkout gust-x
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+          INPUT_GUST_X_REF: ${{ github.event.inputs.gust_x_ref }}
+        run: |
+          set -euo pipefail
+          ref="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            ref="${PR_HEAD_REF}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_GUST_X_REF}" ]]; then
+            ref="${INPUT_GUST_X_REF}"
+          fi
+          if ! gh api "repos/lovitus/gust-x/git/refs/heads/${ref}" >/dev/null 2>&1; then
+            ref=master
+          fi
+          gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch "${ref}"
+
+      - name: Cross-build singbox flavor
+        shell: bash
+        env:
+          TARGET_GOOS: ${{ matrix.goos }}
+          TARGET_GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          tags="$(bash .github/scripts/singbox-tags.sh)"
+          extension=""
+          if [[ "${TARGET_GOOS}" == "windows" ]]; then
+            extension=.exe
+          fi
+          CGO_ENABLED=0 GOOS="${TARGET_GOOS}" GOARCH="${TARGET_GOARCH}" \
+            go build -trimpath -tags "${tags}" \
+            -o "${RUNNER_TEMP}/gust-with-singbox${extension}" ./cmd/gost
