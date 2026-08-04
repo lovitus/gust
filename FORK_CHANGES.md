@@ -12,10 +12,11 @@ version and feature set. CI smoke-tests both flavors and a scheduled
 compatibility workflow continuously compiles against the pinned and latest
 stable sing-box releases.
 
-The CLI can already parse `*+singbox://` node URIs into structured connector
+The CLI can parse `*+singbox://` node URIs into structured connector
 metadata for `-O`, including inline/file/base64 JSON, full-config tag selection,
 nested paths, exact JSON values and URL-safe secret handling. Runtime chain
-transport integration is still under development on the feature branch.
+integration supports self-dialing first-hop TCP/UDP and fails closed when a
+not-yet-supported GOST prefix route would otherwise permit a direct bypass.
 
 ### Porty Stealth Port Forwarding
 `gust` registers the `porty` listener/handler/dialer/connector from `gust-x` and

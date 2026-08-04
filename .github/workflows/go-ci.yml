@@ -122,3 +122,27 @@ jobs:
             exit 1
           fi
           go version -m "${singbox_bin}" | grep -F $'github.com/sagernet/sing-box\t'
+
+          python3 tests/e2e/scripts/tcp_echo.py >"${RUNNER_TEMP}/echo.log" 2>&1 &
+          echo_pid=$!
+          (
+            cd "${RUNNER_TEMP}"
+            "${singbox_bin}" -L 'http://127.0.0.1:18888' -F 'direct+singbox://' >"${RUNNER_TEMP}/singbox-e2e.log" 2>&1
+          ) &
+          gust_pid=$!
+          cleanup() {
+            kill "${gust_pid}" "${echo_pid}" 2>/dev/null || true
+            wait "${gust_pid}" "${echo_pid}" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for _ in {1..30}; do
+            if curl --fail --silent --show-error --max-time 2 \
+              --proxy http://127.0.0.1:18888 http://127.0.0.1:5678 \
+              | grep -Fx 'hello-gost'; then
+              exit 0
+            fi
+            sleep 0.2
+          done
+          cat "${RUNNER_TEMP}/singbox-e2e.log" >&2
+          exit 1
