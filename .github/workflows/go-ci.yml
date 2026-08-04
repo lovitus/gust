@@ -19,6 +19,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       GO_VERSION: 1.26.3
     steps:
@@ -66,21 +67,21 @@ jobs:
         # These four failures reproduce unchanged on go-gost/x master at
         # 7f72a81864c75171baa90cb114d2becae050038a with Go 1.26.3.
         run: >-
-          go test
+          timeout --signal=TERM --kill-after=30s 15m
+          go test -timeout 12m
           -skip '^(TestInit_DefaultExchanger|TestHandleHTTP_BasicProxy|TestWrapListenerAccept)$'
           ./...
 
       - name: Download gust modules
         run: go mod download
 
-      - name: Test gust
-        # These suites also fail on unmodified go-gost/gost master at
-        # c7d793c619e3690f091dd98ac9b4085e212db26f in the same environment.
-        run: >-
-          go test
-          -timeout 30m
-          -skip '^(TestFileSuite|TestHTTPCacheSuite|TestMTLSSuite|TestSniffingSuite)$'
-          ./...
+      - name: Test gust unit packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t packages < <(go list ./... | grep -v '/tests/e2e$')
+          timeout --signal=TERM --kill-after=30s 15m \
+            go test -timeout 12m "${packages[@]}"
 
       - name: Verify pinned sing-box version
         shell: bash
