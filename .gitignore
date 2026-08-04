@@ -32,9 +32,22 @@ _testmain.go
 *.bak
 
 cmd/gost/gost
+gost
 snap
 
 *.pem
-*.yaml
+/*.yaml
 *.txt
 dist/
+
+# Build artifacts
+.build/
+
+# Codegraph index (generated, multi-hundred-MB db)
+.codegraph/
+
+# Python cache
+__pycache__/
+
+# Claude session config
+.claude/

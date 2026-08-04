@@ -1,6 +1,6 @@
 ﻿# Fork Changes (gust)
 
-Based on upstream: go-gost/gost v3.2.6 + go-gost/x v0.8.1
+Based on upstream: go-gost/gost `c7d793c619e3690f091dd98ac9b4085e212db26f` + go-gost/x v0.15.2
 
 ## New Features
 
@@ -50,6 +50,11 @@ When SSH server disables TCP forwarding (AllowTcpForwarding=no), automatically f
 
 ### Escape-Based Password Parsing
 Supports backslash escapes and quotes in inline passwords, backward compatible with URL encoding.
+
+### SOCKS5 UDP First-Packet Source Pinning
+`udpSourceCheck=first-packet` supports deployments where the TCP control
+connection and UDP datagrams arrive from different source IPs, while pinning
+the first UDP source IP and port for the rest of the association.
 
 ## Modified Files in go-gost/x
 - dialer/connector/listener/handler/porty - Porty protocol registration and integration
