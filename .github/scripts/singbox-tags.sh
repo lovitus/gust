@@ -14,6 +14,7 @@ tags=(
   with_wireguard
   with_utls
   with_naive_outbound
+  with_purego
   with_acme
   with_clash_api
   with_tailscale
