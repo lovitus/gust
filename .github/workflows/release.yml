@@ -178,6 +178,20 @@ jobs:
           echo '3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986  '"${stage}/GPL-3.0.txt" \
             | sha256sum --check
 
+          set +e
+          LD_LIBRARY_PATH="${stage}" timeout --signal=TERM --kill-after=5s 2s \
+            "${stage}/gust-with-singbox" -L 'http://127.0.0.1:18993' \
+            -F 'naive+singbox://user:password@127.0.0.1:443?tls.enabled=true' \
+            >"${stage}/naive-smoke.log" 2>&1
+          smoke_status=$?
+          set -e
+          if [[ "${smoke_status}" -ne 124 ]]; then
+            cat "${stage}/naive-smoke.log" >&2
+            echo "Naive release smoke test exited early with status ${smoke_status}" >&2
+            exit 1
+          fi
+          rm -f "${stage}/naive-smoke.log"
+
           GUST_COMMIT="$(git rev-parse HEAD)"
           GUST_X_COMMIT="$(git -C ../gust-x rev-parse HEAD)"
           GO_BUILD_VERSION="$(go env GOVERSION)"
