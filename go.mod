@@ -2,6 +2,8 @@ module github.com/go-gost/gost
 
 go 1.26.3
 
+replace github.com/go-gost/x => ../gust-x
+
 require (
 	github.com/go-gost/core v0.6.0
 	github.com/go-gost/x v0.15.2

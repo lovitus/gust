@@ -1,6 +1,6 @@
 ﻿# Fork Changes (gust)
 
-Based on upstream: go-gost/gost v3.2.6 + go-gost/x v0.8.1
+Based on upstream: go-gost/gost `c7d793c619e3690f091dd98ac9b4085e212db26f` + go-gost/x v0.15.2
 
 ## New Features
 

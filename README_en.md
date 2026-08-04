@@ -1,7 +1,7 @@
 # Gust
 
-> Fork of [go-gost/gost](https://github.com/go-gost/gost) v3.2.6.
-> Implementation module: [lovitus/gust-x](https://github.com/lovitus/gust-x) (fork of [go-gost/x](https://github.com/go-gost/x) v0.8.1).
+> Fork of [go-gost/gost](https://github.com/go-gost/gost) at `c7d793c`.
+> Implementation module: [lovitus/gust-x](https://github.com/lovitus/gust-x), based on [go-gost/x](https://github.com/go-gost/x) v0.15.2.
 
 ## Additional Features (vs upstream)
 
