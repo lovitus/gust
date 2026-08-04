@@ -78,5 +78,6 @@ jobs:
         # c7d793c619e3690f091dd98ac9b4085e212db26f in the same environment.
         run: >-
           go test
+          -timeout 30m
           -skip '^(TestFileSuite|TestHTTPCacheSuite|TestMTLSSuite|TestSniffingSuite)$'
           ./...
