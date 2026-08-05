@@ -130,7 +130,21 @@ PY
 
 python3 -m json.tool "${stage}/feature-manifest.json" >/dev/null
 if [[ "${target_goos}" == windows ]]; then
-  (cd "${out_dir}" && zip -qr "${archive_root}-${version}.zip" "${archive_root}")
+  python3 - "${out_dir}" "${archive_root}" "${version}" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+out_dir = pathlib.Path(sys.argv[1])
+archive_root = sys.argv[2]
+version = sys.argv[3]
+stage = out_dir / archive_root
+archive = out_dir / f"{archive_root}-{version}.zip"
+with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
+    for path in sorted(stage.rglob("*")):
+        if path.is_file():
+            output.write(path, path.relative_to(out_dir))
+PY
 else
   tar -czf "${out_dir}/${archive_root}-${version}.tar.gz" -C "${out_dir}" "${archive_root}"
 fi

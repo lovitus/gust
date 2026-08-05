@@ -322,7 +322,8 @@ jobs:
             --out-dir dist
           root="dist/gust-with-singbox-${TARGET_GOOS}-${TARGET_GOARCH}"
           if [[ "${TARGET_GOOS}" == windows ]]; then
-            unzip -q "${root}-${version}.zip" -d dist
+            python3 -c 'import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' \
+              "${root}-${version}.zip" dist
           else
             tar -xzf "${root}-${version}.tar.gz" -C dist
           fi
