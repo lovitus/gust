@@ -84,8 +84,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The Cronet runtime is a separate module. `go list -m` can resolve
+          # its cache path before the module archive has been extracted, so
+          # download the complete gust-x module graph before locating the
+          # shared library used by the Naive data-path test.
+          (cd ../gust-x && go mod download)
           tags="$(bash .github/scripts/singbox-tags.sh)"
           cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
+          test -f "${cronet_dir}/libcronet.so"
           (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -tags "${tags}" \
             -run '^(TestNativeValidationRejectsUnknownFieldWithoutLeakingSecret|TestEmptyBoxLifecycle|TestFullManifest|TestNativeProtocolTCPDataPath|TestNativeHysteria2TCPDataPath|TestNativeTUICTCPDataPath|TestNativeSSHTCPDataPath|TestNativeVLESSRealityTCPDataPath|TestNativeNaiveTCPDataPath)$' \
             ./backend/singbox)
