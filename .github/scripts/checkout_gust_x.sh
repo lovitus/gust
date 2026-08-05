@@ -6,6 +6,14 @@ requested_ref="${2:-}"
 candidate_ref="${3:-}"
 ref_type="${4:-}"
 
+if [[ -n "${GH_TOKEN:-}" ]]; then
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "GH_TOKEN is set but GitHub CLI is unavailable" >&2
+    exit 1
+  fi
+  gh auth setup-git
+fi
+
 pinned_ref="$(tr -d '[:space:]' < .github/singbox-gust-x.ref)"
 if [[ -z "${pinned_ref}" ]]; then
   echo "empty .github/singbox-gust-x.ref" >&2

@@ -299,6 +299,7 @@ jobs:
       - name: Checkout matching gust-x
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
           INPUT_GUST_X_REF: ${{ github.event.inputs.gust_x_ref }}
         run: >-
           bash .github/scripts/checkout_gust_x.sh ../gust-x
