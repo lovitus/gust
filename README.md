@@ -24,6 +24,10 @@ See [FORK_CHANGES.md](FORK_CHANGES.md) for detailed technical documentation and 
 `singbox-backend` 和 `singbox-v*` tag。两条发布线互不更新对方的资产或软件包渠道，
 具体流程见 [RELEASE.md](RELEASE.md)。
 
+维护规则：所有通用能力必须先在 `master` 实现；`singbox-backend` 只是在
+`master` 之上的嵌入式 sing-box 扩展。分支同步、PR 目标和 tag 规则见
+[BRANCH_POLICY.md](BRANCH_POLICY.md)。
+
 ---
 
 # GO Simple Tunnel (Upstream)

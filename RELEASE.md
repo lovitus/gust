@@ -7,6 +7,15 @@ Gust maintains two independent development and release lines.
 | Standard Gust | `master` | `vX.Y.Z` | `gost` and `portyd` standard matrix | Homebrew, Scoop, APT and RPM for stable tags |
 | Embedded sing-box | `singbox-backend` | `singbox-vX.Y.Z` | Six `gust-with-singbox` archives | None |
 
+Standard tags must point to commits contained in `origin/master`; the release
+workflow rejects any other source. Embedded sing-box releases are maintained
+separately on `singbox-backend` with `singbox-v*` tags. See
+[BRANCH_POLICY.md](BRANCH_POLICY.md) before preparing either release line.
+
+Current suffix releases such as `v3.2.9-porty7` are prereleases. They publish
+normal GitHub Release archives for `gost` and `portyd`, but they do not update
+Homebrew, Scoop, APT, or RPM package-manager channels.
+
 The two branches have different `.github/workflows/release.yml` definitions.
 GitHub evaluates the workflow from the tagged commit, so a standard `v*` tag
 on `master` runs the standard workflow while a `singbox-v*` tag on
@@ -14,15 +23,17 @@ on `master` runs the standard workflow while a `singbox-v*` tag on
 
 ## Permanent branch policy
 
-- Develop ordinary Gust and replay upstream changes on `master`.
-- Develop the embedded backend on `singbox-backend`.
-- Periodically merge or rebase the updated `master` baseline into
-  `singbox-backend`, resolve conflicts there, and rerun its complete matrix.
+- Develop every general capability and upstream sync on `master` first.
+- Develop only embedded-backend-specific work on `singbox-backend`.
+- Merge the tested `master` baseline forward into `singbox-backend`, resolve
+  conflicts there, and rerun its complete matrix. Never merge the extension
+  branch back into `master`.
 - Keep the matching gust-x work on its own `singbox-backend` branch as well.
 - `.github/singbox-gust-x.ref` pins the exact gust-x commit used by tag builds.
   Update the pin deliberately after the gust-x branch passes its tests.
 - Do not merge the embedded backend, GPL release files or sing-box workflows
-  into `master` unless the two products are intentionally combined later.
+  into `master`. The canonical rules and change classification checklist are in
+  [BRANCH_POLICY.md](BRANCH_POLICY.md).
 
 ## Sing-box CI
 

@@ -22,6 +22,10 @@ Development and releases are permanently separated: standard builds use
 `master` and `v*` tags, while embedded builds use `singbox-backend` and
 `singbox-v*` tags. See [RELEASE.md](RELEASE.md) for the isolated workflows.
 
+All general-purpose work must land on `master` first. `singbox-backend` is only
+the embedded sing-box extension layered on that baseline. See
+[BRANCH_POLICY.md](BRANCH_POLICY.md) for synchronization, PR and tag rules.
+
 ---
 
 # GO Simple Tunnel
