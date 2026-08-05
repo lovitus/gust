@@ -75,7 +75,10 @@ jobs:
         run: |
           set -euo pipefail
           tags="$(bash .github/scripts/singbox-tags.sh)"
-          (cd ../gust-x && go test -tags "${tags}" -run '^(TestNativeValidationRejectsUnknownFieldWithoutLeakingSecret|TestEmptyBoxLifecycle|TestFullManifest)$' ./backend/singbox)
+          cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
+          (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -tags "${tags}" \
+            -run '^(TestNativeValidationRejectsUnknownFieldWithoutLeakingSecret|TestEmptyBoxLifecycle|TestFullManifest|TestNativeProtocolTCPDataPath|TestNativeHysteria2TCPDataPath|TestNativeTUICTCPDataPath|TestNativeSSHTCPDataPath|TestNativeVLESSRealityTCPDataPath|TestNativeNaiveTCPDataPath)$' \
+            ./backend/singbox)
           (cd ../gust-x && go test ./connector/sings ./connector/singsu ./handler/sings ./handler/singsu)
           go mod tidy
           go build -trimpath -tags "${tags}" -o "${RUNNER_TEMP}/gust-with-singbox" ./cmd/gost

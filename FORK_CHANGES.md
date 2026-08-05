@@ -21,10 +21,12 @@ content-hash/singleflight/refcount runtime pool. Prefix failures are fail-closed
 selector/urltest background activity keeps the original config network semantics.
 Configuration-file metadata supports nested options and json/config references.
 
-The initial `gust-with-singbox` release target is Linux amd64. It uses the
-upstream pure-Go Cronet loader and bundles `libcronet.so` for Naive. Each archive
-contains a feature manifest, exact source refs, GPLv3 text and upstream license
-notices. Full usage and lifecycle documentation is in
+`gust-with-singbox` release assets cover Linux amd64/arm64, Windows
+amd64/arm64 and Darwin amd64/arm64. Linux and Windows use the upstream pure-Go
+Cronet loader and bundle the matching shared library for Naive. Darwin omits
+Naive and CCM in its reproducible `CGO_ENABLED=0` flavor and declares both in
+the feature manifest. Each archive contains exact source refs, GPLv3 text and
+upstream license notices. Full usage and lifecycle documentation is in
 https://github.com/lovitus/gust-x/blob/master/docs/singbox.md.
 
 ### Porty Stealth Port Forwarding

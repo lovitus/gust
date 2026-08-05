@@ -2,6 +2,11 @@
 
 This repository publishes normal GitHub Release assets for every `v*` tag. Release assets include the main `gost` binary and the standalone `portyd` server built from `lovitus/gust-x`. Package-manager channels are stricter: Homebrew, Scoop, APT, and RPM repositories are updated only for stable tags matching `^v[0-9]+\.[0-9]+\.[0-9]+$`.
 
+The same workflow can be started manually without a tag. Manual dispatch is a
+build-only release rehearsal: it builds every standard and singbox archive,
+generates manifests and uploads workflow artifacts, but it never creates a
+GitHub Release or modifies package repositories.
+
 Current suffix releases such as `v3.2.9-porty7` are prereleases. They publish
 normal GitHub Release archives for `gost` and `portyd`, but they do not update
 Homebrew, Scoop, APT, or RPM package-manager channels.
@@ -21,6 +26,20 @@ Homebrew, Scoop, APT, or RPM package-manager channels.
 - Workflow permissions must allow `GITHUB_TOKEN` to write repository contents and Pages.
 - If `master` is protected from direct bot pushes, either allow the release workflow bot to push package manifests or change the manifest step to open a bot PR.
 - GitHub Pages is published from the `gh-pages` branch. The release workflow creates this branch on first stable package publish if it does not exist.
+
+## Sing-box assets
+
+- Linux amd64/arm64 archives include `libcronet.so` and support Naive.
+- Windows amd64/arm64 archives include `libcronet.dll` and support Naive.
+- Darwin amd64/arm64 archives omit Naive and CCM; the asset manifest reports
+  those features as unavailable.
+- `.github/singbox-gust-x.ref` pins the exact gust-x source commit used by tag
+  builds, so rerunning an old tag cannot silently build a newer gust-x master.
+- Every platform archive is exercised on a native GitHub runner before it is
+  treated as a validated CI artifact.
+
+Before pushing a release tag, manually dispatch the release workflow with the
+intended version and confirm all build artifacts complete successfully.
 
 ## Stable Release Flow
 

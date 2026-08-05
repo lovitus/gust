@@ -100,13 +100,21 @@ jobs:
         run: |
           set -euo pipefail
           tags="$(bash .github/scripts/singbox-tags.sh)"
-          (cd ../gust-x && go test -p 1 -race -tags "${tags}" \
+          cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
+          protocol_tests='^(TestNativeProtocolTCPDataPath|TestNativeHysteria2TCPDataPath|TestNativeTUICTCPDataPath|TestNativeSSHTCPDataPath|TestNativeVLESSRealityTCPDataPath|TestNativeNaiveTCPDataPath)$'
+          (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -p 1 -race -tags "${tags}" \
+            -skip "${protocol_tests}" \
             ./backend/singbox \
             ./config/cmd/singboxuri \
             ./config/cmd \
             ./chain \
             ./config/parsing/node \
             ./hop)
+          # HTTP/2 and gRPC transport initialization in sing-box v1.13.16 has
+          # upstream race-detector findings. Keep Gust lifecycle and config
+          # integration under -race, and run real protocol data paths normally.
+          (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -p 1 -tags "${tags}" \
+            -run "${protocol_tests}" ./backend/singbox)
 
       - name: Verify Linux purego Naive runtime
         shell: bash
@@ -195,6 +203,8 @@ jobs:
             goarch: arm64
           - goos: windows
             goarch: amd64
+          - goos: windows
+            goarch: arm64
     env:
       GO_VERSION: 1.26.3
     steps:
@@ -233,7 +243,7 @@ jobs:
           TARGET_GOARCH: ${{ matrix.goarch }}
         run: |
           set -euo pipefail
-          tags="$(bash .github/scripts/singbox-tags.sh)"
+          tags="$(bash .github/scripts/singbox-tags.sh --target "${TARGET_GOOS}" "${TARGET_GOARCH}")"
           extension=""
           if [[ "${TARGET_GOOS}" == "windows" ]]; then
             extension=.exe
@@ -241,3 +251,87 @@ jobs:
           CGO_ENABLED=0 GOOS="${TARGET_GOOS}" GOARCH="${TARGET_GOARCH}" \
             go build -trimpath -tags "${tags}" \
             -o "${RUNNER_TEMP}/gust-with-singbox${extension}" ./cmd/gost
+
+  singbox-native-smoke:
+    name: singbox native smoke / ${{ matrix.goos }}-${{ matrix.goarch }}
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - runner: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
+          - runner: macos-15-intel
+            goos: darwin
+            goarch: amd64
+          - runner: macos-14
+            goos: darwin
+            goarch: arm64
+          - runner: windows-latest
+            goos: windows
+            goarch: amd64
+          - runner: windows-11-arm
+            goos: windows
+            goarch: arm64
+    env:
+      GO_VERSION: 1.26.3
+    steps:
+      - name: Checkout gust
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Checkout matching gust-x
+        shell: bash
+        env:
+          INPUT_GUST_X_REF: ${{ github.event.inputs.gust_x_ref }}
+        run: >-
+          bash .github/scripts/checkout_gust_x.sh ../gust-x
+          "${INPUT_GUST_X_REF}" "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" branch
+
+      - name: Build package and run native smoke
+        shell: bash
+        env:
+          TARGET_GOOS: ${{ matrix.goos }}
+          TARGET_GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          version=0.0.0-ci
+          mkdir -p dist
+          bash .github/scripts/build_singbox_asset.sh \
+            --version "${version}" \
+            --tag v0.0.0-ci \
+            --goos "${TARGET_GOOS}" \
+            --goarch "${TARGET_GOARCH}" \
+            --out-dir dist
+          root="dist/gust-with-singbox-${TARGET_GOOS}-${TARGET_GOARCH}"
+          if [[ "${TARGET_GOOS}" == windows ]]; then
+            unzip -q "${root}-${version}.zip" -d dist
+          else
+            tar -xzf "${root}-${version}.tar.gz" -C dist
+          fi
+          bash .github/scripts/smoke_singbox_asset.sh "${root}"
+
+      - name: Upload validated asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: singbox-native-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          retention-days: 3

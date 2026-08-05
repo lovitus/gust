@@ -4,6 +4,16 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Asset version for a build-only dry run
+        required: false
+        default: 0.0.0-dev
+      gust_x_ref:
+        description: Optional gust-x branch or commit for a build-only dry run
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -15,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  GO_VERSION: '1.26'
+  GO_VERSION: '1.26.3'
 
 jobs:
   build:
@@ -47,9 +57,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: Checkout gust-x
+        shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch master
+          INPUT_GUST_X_REF: ${{ inputs.gust_x_ref }}
+        run: >-
+          bash .github/scripts/checkout_gust_x.sh ../gust-x
+          "${INPUT_GUST_X_REF}" "${GITHUB_REF_NAME}" "${GITHUB_REF_TYPE}"
 
       - uses: actions/setup-go@v5
         with:
@@ -66,7 +79,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ inputs.version }}"
+          if [[ -z "${VERSION}" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          BUILD_TAG="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_EVENT_NAME}" == workflow_dispatch ]]; then
+            BUILD_TAG="v${VERSION}"
+          fi
           mkdir -p dist
 
           read -r -a targets <<< "${{ matrix.targets }}"
@@ -97,7 +117,7 @@ jobs:
 
             echo "building ${NAME}..."
             env "${build_env[@]}" \
-              go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" \
+              go build -trimpath -ldflags="-s -w -X main.version=${BUILD_TAG}" \
               -o "$BIN" ./cmd/gost
 
             if [[ "$GOOS" == "windows" ]]; then
@@ -130,17 +150,36 @@ jobs:
           retention-days: 1
 
   build-singbox:
-    name: build / singbox-linux-amd64
+    name: build / singbox-${{ matrix.goos }}-${{ matrix.goarch }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Checkout gust-x
+        shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch master
+          INPUT_GUST_X_REF: ${{ inputs.gust_x_ref }}
+        run: >-
+          bash .github/scripts/checkout_gust_x.sh ../gust-x
+          "${INPUT_GUST_X_REF}" "${GITHUB_REF_NAME}" "${GITHUB_REF_TYPE}"
 
       - uses: actions/setup-go@v5
         with:
@@ -149,89 +188,39 @@ jobs:
 
       - name: Build and package singbox flavor
         shell: bash
+        env:
+          TARGET_GOOS: ${{ matrix.goos }}
+          TARGET_GOARCH: ${{ matrix.goarch }}
         run: |
           set -euo pipefail
-
-          version="${GITHUB_REF_NAME#v}"
-          tags="$(bash .github/scripts/singbox-tags.sh)"
-          archive_root="gust-with-singbox-linux-amd64"
-          stage="dist/${archive_root}"
-          mkdir -p "${stage}"
-
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-            go build -trimpath -tags "${tags}" \
-            -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" \
-            -o "${stage}/gust-with-singbox" ./cmd/gost
-
-          "${stage}/gust-with-singbox" -V | tee "${stage}/version.txt"
-          grep -F 'flavor=singbox' "${stage}/version.txt"
-
-          singbox_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/sing-box)"
-          cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
-          cp "${singbox_dir}/LICENSE" "${stage}/sing-box-LICENSE"
-          cp "${cronet_dir}/LICENSE" "${stage}/cronet-go-LICENSE"
-          cp "${cronet_dir}/libcronet.so" "${stage}/libcronet.so"
-          cp SINGBOX-NOTICE.md "${stage}/SINGBOX-NOTICE.md"
-          curl --fail --silent --show-error --location \
-            https://www.gnu.org/licenses/gpl-3.0.txt \
-            -o "${stage}/GPL-3.0.txt"
-          echo '3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986  '"${stage}/GPL-3.0.txt" \
-            | sha256sum --check
-
-          set +e
-          LD_LIBRARY_PATH="${stage}" timeout --signal=TERM --kill-after=5s 2s \
-            "${stage}/gust-with-singbox" -L 'http://127.0.0.1:18993' \
-            -F 'naive+singbox://user:password@127.0.0.1:443?tls.enabled=true' \
-            >"${stage}/naive-smoke.log" 2>&1
-          smoke_status=$?
-          set -e
-          if [[ "${smoke_status}" -ne 124 ]]; then
-            cat "${stage}/naive-smoke.log" >&2
-            echo "Naive release smoke test exited early with status ${smoke_status}" >&2
-            exit 1
+          version="${{ inputs.version }}"
+          if [[ -z "${version}" ]]; then
+            version="${GITHUB_REF_NAME#v}"
           fi
-          rm -f "${stage}/naive-smoke.log"
-
-          GUST_COMMIT="$(git rev-parse HEAD)"
-          GUST_X_COMMIT="$(git -C ../gust-x rev-parse HEAD)"
-          GO_BUILD_VERSION="$(go env GOVERSION)"
-          export GUST_COMMIT GUST_X_COMMIT GO_BUILD_VERSION
-          export SINGBOX_TAGS="${tags}"
-          python3 - <<'PY' > "${stage}/feature-manifest.json"
-          import json
-          import os
-
-          print(json.dumps({
-              "flavor": "singbox",
-              "singBoxVersion": "v1.13.16",
-              "goVersion": os.environ["GO_BUILD_VERSION"],
-              "goos": "linux",
-              "goarch": "amd64",
-              "buildTags": os.environ["SINGBOX_TAGS"].split(","),
-              "gustCommit": os.environ["GUST_COMMIT"],
-              "gustXCommit": os.environ["GUST_X_COMMIT"],
-              "runtimeFiles": ["gust-with-singbox", "libcronet.so"],
-              "unavailableFeatures": [
-                  "badlinkname",
-                  "tfogo_checklinkname0",
-                  "release targets other than linux/amd64",
-              ],
-          }, indent=2, sort_keys=True))
-          PY
-
-          tar -czf "dist/${archive_root}-${version}.tar.gz" -C dist "${archive_root}"
-          rm -rf "${stage}"
+          build_tag="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_EVENT_NAME}" == workflow_dispatch ]]; then
+            build_tag="v${version}"
+          fi
+          bash .github/scripts/build_singbox_asset.sh \
+            --version "${version}" \
+            --tag "${build_tag}" \
+            --goos "${TARGET_GOOS}" \
+            --goarch "${TARGET_GOARCH}" \
+            --out-dir dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist-singbox-linux-amd64
-          path: dist/*.tar.gz
+          name: dist-singbox-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
           retention-days: 1
 
   release:
     name: publish release
     needs: [build, build-singbox]
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
       - name: Resolve release metadata

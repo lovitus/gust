@@ -10,9 +10,13 @@ derivative work may use its name or imply association without prior consent.
 This project and its assets are named Gust and do not claim endorsement by or
 association with SagerNet or sing-box.
 
-The Linux asset also bundles the matching `libcronet.so` used by the Naive
-outbound through cronet-go's pure-Go loader. Its upstream license notice and a
-complete copy of GPLv3 are included in the archive.
+Linux assets bundle the matching `libcronet.so` and Windows assets bundle the
+matching `libcronet.dll` used by the Naive outbound through cronet-go's
+pure-Go loader. Darwin assets deliberately omit Naive and CCM because the
+pinned cronet-go release supplies static Darwin libraries while Gust's
+reproducible release build uses `CGO_ENABLED=0`. Every archive records this
+platform feature boundary in `feature-manifest.json` and includes the relevant
+upstream license notices and a complete copy of GPLv3.
 
 Corresponding source and reproducible build inputs:
 
@@ -28,9 +32,10 @@ gust-x commits, Go version, target, build tags and unavailable features used
 for that binary. The build command is equivalent to:
 
 ```sh
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-  go build -trimpath -tags "$(bash .github/scripts/singbox-tags.sh)" \
+CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
+  go build -trimpath -tags "$(bash .github/scripts/singbox-tags.sh --target "$GOOS" "$GOARCH")" \
   -o gust-with-singbox ./cmd/gost
 ```
 
-Keep `libcronet.so` beside `gust-with-singbox` when using the Naive outbound.
+Keep `libcronet.so` or `libcronet.dll` beside `gust-with-singbox` when using
+the Naive outbound.
