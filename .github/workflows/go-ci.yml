@@ -2,16 +2,20 @@ name: go-ci
 
 on:
   push:
+    branches:
+      - singbox-backend
     paths-ignore:
       - 'Formula/**'
       - 'bucket/**'
   pull_request:
+    branches:
+      - singbox-backend
   workflow_dispatch:
     inputs:
       gust_x_ref:
         description: gust-x branch to validate with this gust branch
         required: false
-        default: master
+        default: singbox-backend
 
 permissions:
   contents: read
@@ -50,7 +54,7 @@ jobs:
           if gh api "repos/lovitus/gust-x/git/refs/heads/${ref}" >/dev/null 2>&1; then
             echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
           else
-            echo "ref=master" >> "${GITHUB_OUTPUT}"
+            echo "ref=singbox-backend" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Checkout gust-x
@@ -240,7 +244,7 @@ jobs:
             ref="${INPUT_GUST_X_REF}"
           fi
           if ! gh api "repos/lovitus/gust-x/git/refs/heads/${ref}" >/dev/null 2>&1; then
-            ref=master
+            ref=singbox-backend
           fi
           gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch "${ref}"
 

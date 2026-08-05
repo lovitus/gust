@@ -20,6 +20,10 @@ See [FORK_CHANGES.md](FORK_CHANGES.md) for detailed technical documentation and 
 [Sing-box 使用手册](cmd/gost/SINGBOX_MANUAL.md)，完整验收结果、协议和六平台矩阵见
 [Sing-box 验证记录](SINGBOX-VALIDATION.md)。
 
+开发与发布长期分离：标准版使用 `master` 和 `v*` tag；嵌入式版本使用
+`singbox-backend` 和 `singbox-v*` tag。两条发布线互不更新对方的资产或软件包渠道，
+具体流程见 [RELEASE.md](RELEASE.md)。
+
 ---
 
 # GO Simple Tunnel (Upstream)

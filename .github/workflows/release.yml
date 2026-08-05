@@ -1,9 +1,9 @@
-name: release
+name: singbox-release
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'singbox-v*'
   workflow_dispatch:
     inputs:
       version:
@@ -11,147 +11,56 @@ on:
         required: false
         default: 0.0.0-dev
       gust_x_ref:
-        description: Optional gust-x branch or commit for a build-only dry run
+        description: Optional gust-x singbox-backend commit for a build-only dry run
         required: false
         default: ''
 
 permissions:
   contents: write
-  pages: write
 
-# Never cancel an in-flight release; only de-dupe a re-pushed tag.
+# Sing-box releases are independent from master releases and never update the
+# standard package-manager channels or the repository's latest release marker.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 env:
   GO_VERSION: '1.26.3'
+  SINGBOX_BRANCH: singbox-backend
 
 jobs:
-  build:
-    name: build / ${{ matrix.group }}
+  guard:
+    name: validate singbox release source
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Each target: "GOOS/GOARCH[/VARIANT]".
-          # VARIANT is GOAMD64 (v1|v3), GOARM (5|6|7), or GOMIPS.
-          - group: linux-main
-            targets: linux/amd64/v1 linux/amd64/v3 linux/386 linux/arm64
-          - group: linux-arm
-            targets: linux/arm/5 linux/arm/6 linux/arm/7
-          - group: linux-mips
-            targets: linux/mips/softfloat linux/mips/hardfloat linux/mipsle/softfloat linux/mipsle/hardfloat
-          - group: linux-misc
-            targets: linux/mips64 linux/mips64le linux/s390x linux/riscv64
-          - group: darwin
-            targets: darwin/amd64/v1 darwin/arm64
-          - group: freebsd
-            targets: freebsd/386 freebsd/amd64/v1
-          - group: windows
-            targets: windows/386 windows/amd64/v1 windows/amd64/v3 windows/arm64
-
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Checkout gust-x
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          INPUT_GUST_X_REF: ${{ inputs.gust_x_ref }}
-        run: >-
-          bash .github/scripts/checkout_gust_x.sh ../gust-x
-          "${INPUT_GUST_X_REF}" "${GITHUB_REF_NAME}" "${GITHUB_REF_TYPE}"
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: Download modules
-        run: |
-          go mod download
-          (cd ../gust-x && go mod download)
-
-      - name: Build targets
+      - name: Require the dedicated branch and tag namespace
         shell: bash
         run: |
           set -euo pipefail
 
-          VERSION="${{ inputs.version }}"
-          if [[ -z "${VERSION}" ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          fi
-          BUILD_TAG="${GITHUB_REF_NAME}"
           if [[ "${GITHUB_EVENT_NAME}" == workflow_dispatch ]]; then
-            BUILD_TAG="v${VERSION}"
+            if [[ "${GITHUB_REF_TYPE}" != branch || "${GITHUB_REF_NAME}" != "${SINGBOX_BRANCH}" ]]; then
+              echo "manual sing-box releases must run from branch ${SINGBOX_BRANCH}" >&2
+              exit 1
+            fi
+          elif [[ "${GITHUB_REF_TYPE}" != tag || "${GITHUB_REF_NAME}" != singbox-v* ]]; then
+            echo "sing-box release tags must match singbox-v*" >&2
+            exit 1
           fi
-          mkdir -p dist
 
-          read -r -a targets <<< "${{ matrix.targets }}"
-          for target in "${targets[@]}"; do
-            IFS='/' read -r GOOS GOARCH VARIANT <<< "$target"
+          git fetch origin "+refs/heads/${SINGBOX_BRANCH}:refs/remotes/origin/${SINGBOX_BRANCH}"
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" "origin/${SINGBOX_BRANCH}"; then
+            echo "${GITHUB_SHA} is not contained in origin/${SINGBOX_BRANCH}" >&2
+            exit 1
+          fi
 
-            NAME="${GOOS}-${GOARCH}"
-            build_env=("CGO_ENABLED=0" "GOOS=${GOOS}" "GOARCH=${GOARCH}")
-            case "$GOARCH" in
-              amd64)
-                AMD64="${VARIANT:-v1}"
-                NAME="${GOOS}-amd64${AMD64/v1/}"
-                build_env+=("GOAMD64=${AMD64}")
-                ;;
-              arm)
-                NAME="${GOOS}-armv${VARIANT}"
-                build_env+=("GOARM=${VARIANT}")
-                ;;
-              mips|mipsle)
-                NAME="${GOOS}-${GOARCH}-${VARIANT}"
-                build_env+=("GOMIPS=${VARIANT}")
-                ;;
-            esac
-
-            EXT=""
-            [[ "$GOOS" == "windows" ]] && EXT=".exe"
-            BIN="dist/gost-${NAME}${EXT}"
-
-            echo "building ${NAME}..."
-            env "${build_env[@]}" \
-              go build -trimpath -ldflags="-s -w -X main.version=${BUILD_TAG}" \
-              -o "$BIN" ./cmd/gost
-
-            if [[ "$GOOS" == "windows" ]]; then
-              zip -j "dist/gost-${NAME}-${VERSION}.zip" "$BIN"
-            else
-              tar -czf "dist/gost-${NAME}-${VERSION}.tar.gz" -C dist "gost-${NAME}"
-            fi
-            rm -f "$BIN"
-
-            # Build portyd (standalone porty server) from gust-x
-            PORTYD_BIN="dist/portyd-${NAME}${EXT}"
-            echo "building portyd-${NAME}..."
-            (cd ../gust-x && env "${build_env[@]}" \
-              go build -trimpath -ldflags="-s -w" \
-              -o "$GITHUB_WORKSPACE/$PORTYD_BIN" ./cmd/portyd)
-
-            if [[ "$GOOS" == "windows" ]]; then
-              zip -j "dist/portyd-${NAME}-${VERSION}.zip" "$PORTYD_BIN"
-            else
-              tar -czf "dist/portyd-${NAME}-${VERSION}.tar.gz" -C dist "portyd-${NAME}"
-            fi
-            rm -f "$PORTYD_BIN"
-          done
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-${{ matrix.group }}
-          path: dist/
-          retention-days: 1
-
-  build-singbox:
-    name: build / singbox-${{ matrix.goos }}-${{ matrix.goarch }}
+  build:
+    name: build / ${{ matrix.goos }}-${{ matrix.goarch }}
+    needs: guard
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -170,11 +79,13 @@ jobs:
             goarch: amd64
           - goos: darwin
             goarch: arm64
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Checkout gust-x
+
+      - name: Checkout gust-x singbox source
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -195,14 +106,16 @@ jobs:
           TARGET_GOARCH: ${{ matrix.goarch }}
         run: |
           set -euo pipefail
+
           version="${{ inputs.version }}"
           if [[ -z "${version}" ]]; then
-            version="${GITHUB_REF_NAME#v}"
+            version="${GITHUB_REF_NAME#singbox-v}"
           fi
           build_tag="${GITHUB_REF_NAME}"
           if [[ "${GITHUB_EVENT_NAME}" == workflow_dispatch ]]; then
-            build_tag="v${version}"
+            build_tag="singbox-v${version}"
           fi
+
           bash .github/scripts/build_singbox_asset.sh \
             --version "${version}" \
             --tag "${build_tag}" \
@@ -213,15 +126,15 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist-singbox-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: singbox-dist-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
             dist/*.tar.gz
             dist/*.zip
           retention-days: 1
 
   release:
-    name: publish release
-    needs: [build, build-singbox]
+    name: publish singbox release
+    needs: build
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
@@ -231,114 +144,34 @@ jobs:
         run: |
           set -euo pipefail
 
-          TAG="${GITHUB_REF_NAME#refs/tags/}"
-          VERSION="${TAG#v}"
-
-          if [[ -z "${TAG}" || "${TAG}" != v* ]]; then
-            echo "release tag must start with v" >&2
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#singbox-v}"
+          if [[ -z "${version}" || "${tag}" != singbox-v* ]]; then
+            echo "sing-box release tag must match singbox-v*" >&2
             exit 1
           fi
 
-          if [[ "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            STABLE=true
-            PRERELEASE=false
-            MAKE_LATEST=true
-          else
-            STABLE=false
-            PRERELEASE=true
-            MAKE_LATEST=false
+          prerelease=true
+          if [[ "${tag}" =~ ^singbox-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            prerelease=false
           fi
 
           {
-            echo "tag=${TAG}"
-            echo "version=${VERSION}"
-            echo "stable=${STABLE}"
-            echo "prerelease=${PRERELEASE}"
-            echo "make_latest=${MAKE_LATEST}"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Preflight package signing secrets
-        if: ${{ steps.meta.outputs.stable == 'true' }}
-        shell: bash
-        env:
-          PACKAGE_GPG_PRIVATE_KEY: ${{ secrets.PACKAGE_GPG_PRIVATE_KEY }}
-          PACKAGE_GPG_PASSPHRASE: ${{ secrets.PACKAGE_GPG_PASSPHRASE }}
-        run: |
-          set -euo pipefail
-          if [[ -z "${PACKAGE_GPG_PRIVATE_KEY}" || -z "${PACKAGE_GPG_PASSPHRASE}" ]]; then
-            echo "Stable package publishing requires PACKAGE_GPG_PRIVATE_KEY and PACKAGE_GPG_PASSPHRASE." >&2
-            exit 1
-          fi
+            echo "tag=${tag}"
+            echo "version=${version}"
+            echo "prerelease=${prerelease}"
+          } >> "${GITHUB_OUTPUT}"
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Download all artifacts
+      - name: Download all singbox artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: dist-*
+          pattern: singbox-dist-*
           path: dist/
           merge-multiple: true
-
-      - name: Install Linux packaging tools
-        if: ${{ steps.meta.outputs.stable == 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y apt-utils createrepo-c dpkg-dev gnupg rpm
-          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-
-      - name: Build Linux packages
-        if: ${{ steps.meta.outputs.stable == 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash .github/scripts/build_linux_packages.sh \
-            --version "${{ steps.meta.outputs.version }}" \
-            --artifacts-dir dist \
-            --out-dir dist
-
-      - name: Prepare package repository worktree
-        if: ${{ steps.meta.outputs.stable == 'true' }}
-        id: package_pages
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          pages_dir="${RUNNER_TEMP}/gust-package-pages"
-          rm -rf "${pages_dir}"
-          git clone --no-checkout "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "${pages_dir}"
-          cd "${pages_dir}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-            git checkout gh-pages
-          else
-            git checkout --orphan gh-pages
-            git rm -rf . >/dev/null 2>&1 || true
-          fi
-
-          echo "dir=${pages_dir}" >> "$GITHUB_OUTPUT"
-
-      - name: Update Linux package repositories
-        if: ${{ steps.meta.outputs.stable == 'true' }}
-        shell: bash
-        env:
-          PACKAGE_GPG_PRIVATE_KEY: ${{ secrets.PACKAGE_GPG_PRIVATE_KEY }}
-          PACKAGE_GPG_PASSPHRASE: ${{ secrets.PACKAGE_GPG_PASSPHRASE }}
-        run: |
-          set -euo pipefail
-          bash .github/scripts/update_linux_repos.sh \
-            --version "${{ steps.meta.outputs.version }}" \
-            --tag "${{ steps.meta.outputs.tag }}" \
-            --artifacts dist \
-            --pages-dir "${{ steps.package_pages.outputs.dir }}"
 
       - name: Generate checksums
         shell: bash
@@ -349,46 +182,27 @@ jobs:
             sha256sum -- ./* > checksums.txt
           )
 
-      - name: Checkout master for package manifests
-        if: ${{ steps.meta.outputs.stable == 'true' }}
-        uses: actions/checkout@v4
-        with:
-          ref: master
-          path: manifest-main
-
-      - name: Update package manifests
-        if: ${{ steps.meta.outputs.stable == 'true' }}
-        shell: bash
-        working-directory: manifest-main
-        run: |
-          set -euo pipefail
-
-          python3 "${GITHUB_WORKSPACE}/.github/scripts/update_package_manifests.py" \
-            --version "${{ steps.meta.outputs.version }}" \
-            --checksums "${GITHUB_WORKSPACE}/dist/checksums.txt"
-
-          ruby -c Formula/gust.rb
-          python3 -m json.tool bucket/gust.json >/dev/null
-
       - name: Prepare release notes
         shell: bash
         run: |
           set -euo pipefail
 
-          TAG="${{ steps.meta.outputs.tag }}"
-          PREV="$(git tag --sort=-v:refname | grep -v "^${TAG}$" | head -1 || true)"
-
+          tag="${{ steps.meta.outputs.tag }}"
+          previous="$(git tag --list 'singbox-v*' --sort=-v:refname | grep -v "^${tag}$" | head -1 || true)"
           {
-            echo "## What's new in ${TAG}"
+            echo "## Gust embedded sing-box ${tag}"
             echo ""
-            if [[ -n "${PREV}" ]]; then
-              git log --pretty="- %s" "${PREV}..${TAG}" 2>/dev/null | head -50 || true
+            if [[ -n "${previous}" ]]; then
+              git log --pretty='- %s' "${previous}..${tag}" 2>/dev/null | head -50 || true
             else
-              git log --pretty="- %s" "${TAG}" 2>/dev/null | head -50 || true
+              git log --pretty='- %s' "${tag}" 2>/dev/null | head -50 || true
             fi
             echo ""
-            echo "See [docs/porty.md](https://github.com/lovitus/gust-x/blob/master/docs/porty.md) for full documentation."
-          } > /tmp/release-notes.md
+            echo "This release is built from the dedicated \`${SINGBOX_BRANCH}\` branch."
+            echo "It is independent from standard \`master\` releases and does not update package-manager channels."
+            echo ""
+            echo "Run \`gost -singboxmanual\` for the embedded user manual."
+          } > /tmp/singbox-release-notes.md
 
       - name: Create or update GitHub Release
         shell: bash
@@ -397,15 +211,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          TAG="${{ steps.meta.outputs.tag }}"
-          PRERELEASE="${{ steps.meta.outputs.prerelease }}"
-          MAKE_LATEST="${{ steps.meta.outputs.make_latest }}"
+          tag="${{ steps.meta.outputs.tag }}"
+          prerelease="${{ steps.meta.outputs.prerelease }}"
 
-          if gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release upload "${TAG}" dist/* --clobber
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" dist/* --clobber
 
-            release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq .id)"
-            export TAG PRERELEASE MAKE_LATEST
+            release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq .id)"
+            export tag prerelease
             python3 - <<'PY'
           from __future__ import annotations
 
@@ -413,83 +226,31 @@ jobs:
           import os
           from pathlib import Path
 
-          Path("/tmp/release-patch.json").write_text(
+          Path("/tmp/singbox-release-patch.json").write_text(
               json.dumps(
                   {
-                      "name": os.environ["TAG"],
-                      "tag_name": os.environ["TAG"],
-                      "body": Path("/tmp/release-notes.md").read_text(encoding="utf-8"),
-                      "prerelease": os.environ["PRERELEASE"] == "true",
-                      "make_latest": os.environ["MAKE_LATEST"],
+                      "name": os.environ["tag"],
+                      "tag_name": os.environ["tag"],
+                      "body": Path("/tmp/singbox-release-notes.md").read_text(encoding="utf-8"),
+                      "prerelease": os.environ["prerelease"] == "true",
+                      "make_latest": "false",
                   }
               ),
               encoding="utf-8",
           )
           PY
             gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
-              --input /tmp/release-patch.json >/dev/null
+              --input /tmp/singbox-release-patch.json >/dev/null
           else
             create_args=(
-              "${TAG}"
+              "${tag}"
               dist/*
-              --title "${TAG}"
-              --notes-file /tmp/release-notes.md
+              --title "${tag}"
+              --notes-file /tmp/singbox-release-notes.md
+              --latest=false
             )
-
-            if [[ "${PRERELEASE}" == "true" ]]; then
-              create_args+=(--prerelease --latest=false)
-            else
-              create_args+=(--latest)
+            if [[ "${prerelease}" == true ]]; then
+              create_args+=(--prerelease)
             fi
-
             gh release create "${create_args[@]}"
-          fi
-
-      - name: Publish Linux package repositories
-        if: ${{ steps.meta.outputs.stable == 'true' }}
-        shell: bash
-        working-directory: ${{ steps.package_pages.outputs.dir }}
-        run: |
-          set -euo pipefail
-
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git add -A
-            git commit -m "chore: update Linux package repositories for ${{ steps.meta.outputs.tag }} [skip ci]"
-            git push origin HEAD:gh-pages
-          else
-            echo "Linux package repositories are already up to date."
-          fi
-
-      - name: Commit package manifests
-        if: ${{ steps.meta.outputs.stable == 'true' }}
-        shell: bash
-        working-directory: manifest-main
-        run: |
-          set -euo pipefail
-
-          if [[ -z "$(git status --porcelain -- Formula/gust.rb bucket/gust.json)" ]]; then
-            echo "Package manifests are already up to date."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula/gust.rb bucket/gust.json
-          git commit -m "chore: update package manifests for ${{ steps.meta.outputs.tag }} [skip ci]"
-          git push origin HEAD:master
-
-      - name: Ensure GitHub Pages is enabled
-        if: ${{ steps.meta.outputs.stable == 'true' }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          if gh api "repos/${GITHUB_REPOSITORY}/pages" >/dev/null 2>&1; then
-            echo "GitHub Pages is already enabled."
-          else
-            gh api -X POST "repos/${GITHUB_REPOSITORY}/pages" \
-              -f "source[branch]=gh-pages" \
-              -f "source[path]=/"
           fi

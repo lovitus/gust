@@ -18,6 +18,10 @@ Embedded sing-box users can run `gost -singboxmanual` for the offline manual.
 The repository copies are the [sing-box user manual](cmd/gost/SINGBOX_MANUAL.md)
 and the detailed [sing-box acceptance record](SINGBOX-VALIDATION.md).
 
+Development and releases are permanently separated: standard builds use
+`master` and `v*` tags, while embedded builds use `singbox-backend` and
+`singbox-v*` tags. See [RELEASE.md](RELEASE.md) for the isolated workflows.
+
 ---
 
 # GO Simple Tunnel

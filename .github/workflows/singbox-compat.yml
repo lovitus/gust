@@ -1,8 +1,15 @@
 name: sing-box compatibility
 
 on:
-  schedule:
-    - cron: '23 5 * * 1'
+  push:
+    branches:
+      - singbox-backend
+    paths:
+      - '.github/singbox-gust-x.ref'
+      - '.github/scripts/singbox-tags.sh'
+      - '.github/workflows/singbox-compat.yml'
+      - 'go.mod'
+      - 'go.sum'
   workflow_dispatch:
     inputs:
       singbox_version:
@@ -28,9 +35,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Checkout gust-x
+        shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch master
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: >-
+          bash .github/scripts/checkout_gust_x.sh ../gust-x
+          "" "singbox-backend" branch
 
       - name: Set up Go
         uses: actions/setup-go@v5

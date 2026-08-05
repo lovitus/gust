@@ -1,60 +1,108 @@
-# Release and Package Manager Publishing
+# Standard and embedded sing-box releases
 
-This repository publishes normal GitHub Release assets for every `v*` tag. Release assets include the main `gost` binary and the standalone `portyd` server built from `lovitus/gust-x`. Package-manager channels are stricter: Homebrew, Scoop, APT, and RPM repositories are updated only for stable tags matching `^v[0-9]+\.[0-9]+\.[0-9]+$`.
+Gust maintains two independent development and release lines.
 
-The same workflow can be started manually without a tag. Manual dispatch is a
-build-only release rehearsal: it builds every standard and singbox archive,
-generates manifests and uploads workflow artifacts, but it never creates a
-GitHub Release or modifies package repositories.
+| Line | Source branch | Tag namespace | Assets | Package channels |
+|---|---|---|---|---|
+| Standard Gust | `master` | `vX.Y.Z` | `gost` and `portyd` standard matrix | Homebrew, Scoop, APT and RPM for stable tags |
+| Embedded sing-box | `singbox-backend` | `singbox-vX.Y.Z` | Six `gust-with-singbox` archives | None |
 
-Current suffix releases such as `v3.2.9-porty7` are prereleases. They publish
-normal GitHub Release archives for `gost` and `portyd`, but they do not update
-Homebrew, Scoop, APT, or RPM package-manager channels.
+The two branches have different `.github/workflows/release.yml` definitions.
+GitHub evaluates the workflow from the tagged commit, so a standard `v*` tag
+on `master` runs the standard workflow while a `singbox-v*` tag on
+`singbox-backend` runs the sing-box-only workflow.
 
-## Release Types
+## Permanent branch policy
 
-- Stable tags such as `v3.2.8` are marked as latest and update package-manager channels.
-- Nonstable tags such as `v3.2.8-rc1`, `v3.2.7-sings`, and nightly tags are marked as prerelease and explicitly not latest.
-- The first package-manager version is the next stable tag after this publishing setup lands. Existing suffix releases are not backfilled.
+- Develop ordinary Gust and replay upstream changes on `master`.
+- Develop the embedded backend on `singbox-backend`.
+- Periodically merge or rebase the updated `master` baseline into
+  `singbox-backend`, resolve conflicts there, and rerun its complete matrix.
+- Keep the matching gust-x work on its own `singbox-backend` branch as well.
+- `.github/singbox-gust-x.ref` pins the exact gust-x commit used by tag builds.
+  Update the pin deliberately after the gust-x branch passes its tests.
+- Do not merge the embedded backend, GPL release files or sing-box workflows
+  into `master` unless the two products are intentionally combined later.
 
-## Required Repository Settings
+## Sing-box CI
 
-- Secrets:
-  - `PACKAGE_GPG_PRIVATE_KEY`
-  - `PACKAGE_GPG_PASSPHRASE`
-  - existing `GH_PAT` for checking out `lovitus/gust-x`
-- Workflow permissions must allow `GITHUB_TOKEN` to write repository contents and Pages.
-- If `master` is protected from direct bot pushes, either allow the release workflow bot to push package manifests or change the manifest step to open a bot PR.
-- GitHub Pages is published from the `gh-pages` branch. The release workflow creates this branch on first stable package publish if it does not exist.
+The branch-specific Go CI runs for pushes and pull requests targeting
+`singbox-backend`. It checks:
+
+- standard/singbox flavor separation and `-singboxmanual`;
+- native schema, lifecycle, race and protocol data paths;
+- Linux Naive with the matching Cronet runtime;
+- Linux, Windows and Darwin on amd64 and arm64 native runners;
+- package contents, notices, manuals, validation record and runtime libraries.
+
+The compatibility workflow runs when the pinned sing-box inputs change and can
+also be dispatched manually to compare the pinned and latest stable versions.
+
+## Build-only rehearsal
+
+Run the `singbox-release` workflow manually from the `singbox-backend` branch.
+For example:
+
+```bash
+gh workflow run release.yml \
+  --ref singbox-backend \
+  -f version=0.0.0-dev
+```
+
+An optional exact gust-x ref may be supplied for a rehearsal:
+
+```bash
+gh workflow run release.yml \
+  --ref singbox-backend \
+  -f version=0.0.0-dev \
+  -f gust_x_ref=GUST_X_COMMIT
+```
+
+Manual dispatch is build-only. It builds and uploads six temporary workflow
+artifacts but skips `publish singbox release`, so it creates no tag, GitHub
+Release, package repository or package-manager update.
+
+The source guard rejects manual runs from any branch other than
+`singbox-backend`.
+
+## Publish a sing-box release
+
+1. Confirm both `singbox-backend` worktrees are clean and pushed.
+2. Update `.github/singbox-gust-x.ref` to the exact tested gust-x commit.
+3. Wait for the branch Go CI and compatibility jobs to pass.
+4. Run a build-only rehearsal with the intended version.
+5. Create the tag on a commit contained in the Gust `singbox-backend` branch:
+
+   ```bash
+   git switch singbox-backend
+   git pull --ff-only
+   git tag -a singbox-v1.0.0 -m 'Gust embedded sing-box 1.0.0'
+   git push origin singbox-v1.0.0
+   ```
+
+6. Confirm all six build jobs and the publish job pass.
+
+The release guard rejects `singbox-v*` tags whose commit is not contained in
+`origin/singbox-backend`.
+
+Exact `singbox-vX.Y.Z` tags create non-prerelease GitHub Releases. Suffix tags
+such as `singbox-v1.0.0-rc1` are prereleases. Neither form is marked as the
+repository's latest release, so the standard `master` release remains the
+default download and package-manager source.
 
 ## Sing-box assets
 
-- Linux amd64/arm64 archives include `libcronet.so` and support Naive.
-- Windows amd64/arm64 archives include `libcronet.dll` and support Naive.
-- Darwin amd64/arm64 archives omit Naive and CCM; the asset manifest reports
-  those features as unavailable.
-- `.github/singbox-gust-x.ref` pins the exact gust-x source commit used by tag
-  builds, so rerunning an old tag cannot silently build a newer gust-x master.
-- Every platform archive is exercised on a native GitHub runner before it is
-  treated as a validated CI artifact.
+- Linux amd64/arm64: binary plus `libcronet.so`, including Naive.
+- Windows amd64/arm64: binary plus `libcronet.dll`, including Naive.
+- Darwin amd64/arm64: reproducible limited build without Naive or CCM.
 
-Before pushing a release tag, manually dispatch the release workflow with the
-intended version and confirm all build artifacts complete successfully.
+Each archive includes `feature-manifest.json`, `SINGBOX-MANUAL.md`,
+`SINGBOX-VALIDATION.md`, GPLv3, sing-box notices and the exact Gust/gust-x
+source revisions. The release also publishes `checksums.txt`.
 
-## Stable Release Flow
+## Standard releases
 
-1. Push a stable tag, for example `v3.2.8`.
-2. The release workflow builds all existing binary archives.
-3. For stable tags only, it checks signing secrets, builds `gust` deb/rpm packages from the existing `gost-linux-amd64` and `gost-linux-arm64` archives, prepares the APT/RPM repository tree, generates `checksums.txt`, and generates Homebrew/Scoop manifests.
-4. The workflow creates the GitHub Release, or uploads assets with `--clobber` if the Release already exists.
-5. After the Release succeeds, it pushes the signed package repository to `gh-pages` and commits `Formula/gust.rb` plus `bucket/gust.json` back to `master` with `[skip ci]`.
-
-## User Install Channels
-
-- Homebrew tap and Scoop bucket files live in this repository.
-- APT and RPM metadata live on GitHub Pages under `https://lovitus.github.io/gust/`.
-- The package name is `gust`; the installed command remains `gost`.
-
-## Reruns and Recovery
-
-Release reruns are designed to be recoverable before public package state changes. The workflow prepares package repository files locally, then creates or updates the GitHub Release. It pushes `gh-pages` and package manifests only after the Release step succeeds.
+The standard process remains on `master` and uses `v*` tags. Its stable tags
+may update Homebrew, Scoop, APT, RPM, `gh-pages`, and package manifests. The
+sing-box workflow contains none of those steps and cannot mutate those
+channels.

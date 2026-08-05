@@ -5,12 +5,12 @@ Based on upstream: go-gost/gost `c7d793c619e3690f091dd98ac9b4085e212db26f` + go-
 ## New Features
 
 ### Optional embedded sing-box flavor
-The `codex/singbox-backend` work adds separate `standard` and `singbox` build
+The permanent `singbox-backend` branch adds separate `standard` and `singbox` build
 flavors. Standard builds report `flavor=standard` and are checked to contain no
 `github.com/sagernet/sing-box` module; tagged builds report the pinned sing-box
-version and feature set. CI smoke-tests both flavors and a scheduled
-compatibility workflow continuously compiles against the pinned and latest
-stable sing-box releases.
+version and feature set. CI smoke-tests both flavors, and the compatibility
+workflow compiles against the pinned and latest stable sing-box releases when
+the pinned inputs change or a maintainer dispatches it.
 
 The CLI can parse `*+singbox://` node URIs into structured connector
 metadata for `-O`, including inline/file/base64 JSON, full-config tag selection,
@@ -27,7 +27,11 @@ Cronet loader and bundle the matching shared library for Naive. Darwin omits
 Naive and CCM in its reproducible `CGO_ENABLED=0` flavor and declares both in
 the feature manifest. Each archive contains exact source refs, GPLv3 text and
 upstream license notices. Full usage and lifecycle documentation is in
-https://github.com/lovitus/gust-x/blob/master/docs/singbox.md.
+https://github.com/lovitus/gust-x/blob/singbox-backend/docs/singbox.md.
+
+Gust and gust-x maintain this flavor on matching `singbox-backend` branches.
+Its `singbox-v*` releases contain only the six embedded assets and never update
+the standard `master` release, latest marker, or package-manager channels.
 
 ### Porty Stealth Port Forwarding
 `gust` registers the `porty` listener/handler/dialer/connector from `gust-x` and
