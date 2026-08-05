@@ -38,6 +38,7 @@ snap
 *.pem
 /*.yaml
 *.txt
+!licenses/GPL-3.0.txt
 dist/
 
 # Build artifacts
