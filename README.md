@@ -16,6 +16,10 @@
 
 See [FORK_CHANGES.md](FORK_CHANGES.md) for detailed technical documentation and upstream merge notes. Full Porty and sings documentation lives in [gust-x docs/porty.md](https://github.com/lovitus/gust-x/blob/master/docs/porty.md) and [gust-x docs/sings-protocol.md](https://github.com/lovitus/gust-x/blob/master/docs/sings-protocol.md).
 
+嵌入式 sing-box 用户可直接运行 `gost -singboxmanual` 查看离线手册；仓库版本见
+[Sing-box 使用手册](cmd/gost/SINGBOX_MANUAL.md)，完整验收结果、协议和六平台矩阵见
+[Sing-box 验证记录](SINGBOX-VALIDATION.md)。
+
 ---
 
 # GO Simple Tunnel (Upstream)

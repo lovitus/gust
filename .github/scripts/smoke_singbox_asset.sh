@@ -19,6 +19,13 @@ fi
 
 "${binary}" -V | tee "${asset_root}/smoke-version.txt"
 grep -F 'flavor=singbox' "${asset_root}/smoke-version.txt"
+"${binary}" -singboxmanual > "${asset_root}/smoke-singbox-manual.txt"
+grep -F '# Gust embedded sing-box manual' "${asset_root}/smoke-singbox-manual.txt"
+grep -F '## CLI configuration' "${asset_root}/smoke-singbox-manual.txt"
+grep -F '## Gust JSON configuration' "${asset_root}/smoke-singbox-manual.txt"
+grep -F '## Mixed CLI and JSON configuration' "${asset_root}/smoke-singbox-manual.txt"
+test -f "${asset_root}/SINGBOX-MANUAL.md"
+test -f "${asset_root}/SINGBOX-VALIDATION.md"
 
 echo_log="${RUNNER_TEMP:-/tmp}/singbox-echo.log"
 gust_log="${RUNNER_TEMP:-/tmp}/singbox-direct.log"

@@ -155,6 +155,14 @@ jobs:
           grep -F 'flavor=standard' "${RUNNER_TEMP}/standard-version.txt"
           grep -F 'flavor=singbox' "${RUNNER_TEMP}/singbox-version.txt"
 
+          for binary in "${standard_bin}" "${singbox_bin}"; do
+            "${binary}" -singboxmanual > "${RUNNER_TEMP}/singbox-manual.txt"
+            grep -F '# Gust embedded sing-box manual' "${RUNNER_TEMP}/singbox-manual.txt"
+            grep -F '## CLI configuration' "${RUNNER_TEMP}/singbox-manual.txt"
+            grep -F '## Gust JSON configuration' "${RUNNER_TEMP}/singbox-manual.txt"
+            grep -F '## Mixed CLI and JSON configuration' "${RUNNER_TEMP}/singbox-manual.txt"
+          done
+
           if go version -m "${standard_bin}" | grep -F $'github.com/sagernet/sing-box\t'; then
             echo 'standard binary unexpectedly links sing-box' >&2
             exit 1

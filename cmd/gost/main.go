@@ -42,7 +42,7 @@ var (
 	watchdog     bool
 )
 
-func init() {
+func handleWorkers() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
 
 	args := strings.Join(os.Args[1:], "  ")
@@ -90,13 +90,17 @@ func worker(id int, args []string, ctx context.Context, ret *atomic.Int32) {
 	}
 }
 
-func init() {
-	var printVersion bool
+func parseFlags() {
+	var (
+		printVersion       bool
+		printSingboxManual bool
+	)
 
 	flag.Var(&services, "L", "service list")
 	flag.Var(&nodes, "F", "chain node list")
 	flag.Var(&cfgFiles, "C", "config file(s), URL(s), or inline JSON")
 	flag.BoolVar(&printVersion, "V", false, "print version")
+	flag.BoolVar(&printSingboxManual, "singboxmanual", false, "print the embedded sing-box user manual")
 	flag.StringVar(&outputFormat, "O", "", "output format, one of yaml|json format")
 	flag.BoolVar(&debug, "D", false, "debug mode")
 	flag.BoolVar(&trace, "DD", false, "trace mode")
@@ -110,9 +114,18 @@ func init() {
 		printBuildInfo(os.Stdout)
 		os.Exit(0)
 	}
+	if printSingboxManual {
+		if err := writeSingboxManual(os.Stdout); err != nil {
+			log.Fatal(err)
+		}
+		os.Exit(0)
+	}
 }
 
 func main() {
+	handleWorkers()
+	parseFlags()
+
 	if watchdog && os.Getenv("_GOST_WATCHDOG_CHILD") == "" {
 		runWatchdog()
 		return
