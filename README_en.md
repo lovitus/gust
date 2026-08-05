@@ -14,6 +14,10 @@
 
 See [FORK_CHANGES.md](FORK_CHANGES.md) for technical details and upstream merge notes. Full Porty and sings documentation lives in [gust-x docs/porty.md](https://github.com/lovitus/gust-x/blob/master/docs/porty.md) and [gust-x docs/sings-protocol.md](https://github.com/lovitus/gust-x/blob/master/docs/sings-protocol.md).
 
+All general-purpose work must land on `master` first. `singbox-backend` is only
+the embedded sing-box extension layered on that baseline. See
+[BRANCH_POLICY.md](BRANCH_POLICY.md) for synchronization, PR and tag rules.
+
 ---
 
 # GO Simple Tunnel

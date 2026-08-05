@@ -18,8 +18,31 @@ env:
   GO_VERSION: '1.26'
 
 jobs:
+  guard:
+    name: validate standard release source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require master and the standard tag namespace
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" != tag || "${GITHUB_REF_NAME}" != v* ]]; then
+            echo "standard release tags must match v*" >&2
+            exit 1
+          fi
+          git fetch origin '+refs/heads/master:refs/remotes/origin/master'
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/master; then
+            echo "${GITHUB_SHA} is not contained in origin/master" >&2
+            exit 1
+          fi
+
   build:
     name: build / ${{ matrix.group }}
+    needs: guard
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

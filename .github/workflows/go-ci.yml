@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout gust
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -56,6 +58,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch "${{ steps.gustx.outputs.ref }}"
+
+      - name: Enforce branch policy
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+        run: bash .github/scripts/check_branch_policy.sh "${TARGET_BRANCH}" ../gust-x
 
       - name: Download gust-x modules
         working-directory: ../gust-x
