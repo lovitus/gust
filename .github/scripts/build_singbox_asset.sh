@@ -58,6 +58,7 @@ CGO_ENABLED=0 GOOS="${target_goos}" GOARCH="${target_goarch}" \
 go version -m "${binary_path}" | grep -F $'github.com/sagernet/sing-box\t'
 
 singbox_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/sing-box)"
+singbox_version="$(cd ../gust-x && go list -m -f '{{.Version}}' github.com/sagernet/sing-box)"
 cp "${singbox_dir}/LICENSE" "${stage}/sing-box-LICENSE"
 cp SINGBOX-NOTICE.md "${stage}/SINGBOX-NOTICE.md"
 cp cmd/gost/SINGBOX_MANUAL.md "${stage}/SINGBOX-MANUAL.md"
@@ -110,6 +111,7 @@ go_build_version="$(go env GOVERSION)"
 runtime_json="$(printf '%s\n' "${runtime_files[@]}" | python3 -c 'import json,sys; print(json.dumps([line.rstrip("\n") for line in sys.stdin if line.rstrip("\n")]))')"
 unavailable_json="$(printf '%s\n' "${unavailable_features[@]}" | python3 -c 'import json,sys; print(json.dumps([line.rstrip("\n") for line in sys.stdin if line.rstrip("\n")]))')"
 export GUST_COMMIT="${gust_commit}" GUST_X_COMMIT="${gust_x_commit}" GO_BUILD_VERSION="${go_build_version}"
+export SINGBOX_VERSION="${singbox_version}"
 export SINGBOX_TAGS="${tags}" TARGET_GOOS="${target_goos}" TARGET_GOARCH="${target_goarch}"
 export RUNTIME_FILES_JSON="${runtime_json}" UNAVAILABLE_FEATURES_JSON="${unavailable_json}"
 python3 - <<'PY' > "${stage}/feature-manifest.json"
@@ -118,7 +120,7 @@ import os
 
 print(json.dumps({
     "flavor": "singbox",
-    "singBoxVersion": "v1.13.16",
+    "singBoxVersion": os.environ["SINGBOX_VERSION"],
     "goVersion": os.environ["GO_BUILD_VERSION"],
     "goos": os.environ["TARGET_GOOS"],
     "goarch": os.environ["TARGET_GOARCH"],

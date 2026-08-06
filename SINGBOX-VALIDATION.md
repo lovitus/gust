@@ -80,16 +80,16 @@ matching Cronet runtime.
 | Prefix route failure remains fail-closed | PASS |
 | Full-config selector uses GOST prefix route | PASS |
 | Full-config hosts-based DNS dependency retained | PASS |
-| Remote DNS transport automatically follows the GOST prefix | NOT COVERED; explicit detour currently required |
+| Remote DNS transport automatically follows the GOST prefix | PASS, real UDP query and route-dial assertion |
 | Endpoint prefix injection | PASS |
 | Copying a route preserves runtime ownership | PASS |
 | Probe uses an explicit target for self-dialing node | PASS |
 
-DNS acceptance resolves a controlled hostname through a full-config `hosts`
-DNS dependency and then carries an application payload through the selected
-outbound. It does not exercise a networked DNS transport through a preceding
-GOST route. Such a DNS server currently needs an explicit detour to an outbound
-in the selected graph; otherwise it may use sing-box's system-network path.
+DNS acceptance covers both a full-config `hosts` dependency and a controlled
+networked UDP DNS server. The networked test resolves the proxy hostname,
+carries an application payload through the selected outbound, and asserts that
+both the DNS UDP connection and proxy TCP connection used the preceding GOST
+route. No explicit DNS detour is present in that test.
 Operational DNS checks use an actual query and do not infer UDP/DNS support
 from TCP port 53 or from one external resolver.
 
@@ -168,12 +168,11 @@ tests.
 - The embedded backend implements outbound and endpoint use. `-L` does not map
   arbitrary sing-box inbounds, and complete configs containing inbounds are
   rejected.
-- Protocol UDP data-path gates use IP-literal targets. The current UDP
-  `net.Conn` adapter resolves target hostnames locally, so remote-only UDP
-  destination resolution is not an accepted capability yet.
-- The full-config DNS gate uses the sing-box `hosts` transport. Networked DNS
-  transports are not automatically attached to a preceding GOST prefix and
-  require an explicit detour until that integration is implemented.
+- Protocol UDP data-path gates include a remote-only domain association that
+  is preserved as a SOCKS address without local resolution. Direct UDP still
+  uses local DNS by design because no remote resolver exists.
+- Full-config DNS gates cover both the sing-box `hosts` transport and a real
+  networked UDP DNS transport automatically attached to the preceding prefix.
 - Darwin release assets use a reproducible `CGO_ENABLED=0` limited feature set
   and intentionally omit Naive and CCM.
 - Formal publishing was not part of the dry-run: merge approval, release tag

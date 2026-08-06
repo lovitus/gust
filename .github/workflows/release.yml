@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  GO_VERSION: '1.26.3'
+  GO_VERSION: '1.26.5'
   SINGBOX_BRANCH: singbox-backend
 
 jobs:

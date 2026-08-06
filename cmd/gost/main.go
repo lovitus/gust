@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/go-gost/core/logger"
@@ -148,8 +149,9 @@ func runWatchdog() {
 	maxBackoff := 60 * time.Second
 	stableAfter := 5 * time.Minute
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
+	sigCh := make(chan os.Signal, 2)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
 
 	for {
 		cmd := exec.Command(os.Args[0], os.Args[1:]...)
@@ -161,10 +163,10 @@ func runWatchdog() {
 		start := time.Now()
 		if err := cmd.Start(); err != nil {
 			log.Printf("watchdog: failed to start: %v", err)
-			time.Sleep(backoff)
-			if backoff < maxBackoff {
-				backoff *= 2
+			if waitWatchdogBackoff(sigCh, backoff) {
+				return
 			}
+			backoff = nextWatchdogBackoff(backoff, maxBackoff)
 			continue
 		}
 
@@ -173,12 +175,11 @@ func runWatchdog() {
 
 		select {
 		case sig := <-sigCh:
-			cmd.Process.Signal(sig)
-			<-childDone
-			os.Exit(0)
+			stopWatchdogChild(cmd, childDone, sig, sigCh)
+			return
 		case err := <-childDone:
 			if err == nil {
-				os.Exit(0)
+				return
 			}
 
 			elapsed := time.Since(start)
@@ -187,10 +188,48 @@ func runWatchdog() {
 			}
 
 			log.Printf("watchdog: process exited (%v), restarting in %v", err, backoff)
-			time.Sleep(backoff)
-			if backoff < maxBackoff {
-				backoff *= 2
+			if waitWatchdogBackoff(sigCh, backoff) {
+				return
 			}
+			backoff = nextWatchdogBackoff(backoff, maxBackoff)
 		}
 	}
+}
+
+func waitWatchdogBackoff(sigCh <-chan os.Signal, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-sigCh:
+		return true
+	case <-timer.C:
+		return false
+	}
+}
+
+func nextWatchdogBackoff(current, maximum time.Duration) time.Duration {
+	if current >= maximum || current > maximum/2 {
+		return maximum
+	}
+	return current * 2
+}
+
+func stopWatchdogChild(cmd *exec.Cmd, childDone <-chan error, sig os.Signal, sigCh <-chan os.Signal) {
+	if err := cmd.Process.Signal(sig); err != nil {
+		_ = cmd.Process.Kill()
+	}
+
+	const gracefulStopTimeout = 10 * time.Second
+	timer := time.NewTimer(gracefulStopTimeout)
+	defer timer.Stop()
+	select {
+	case <-childDone:
+		return
+	case <-sigCh:
+		log.Printf("watchdog: received a second signal; killing child")
+	case <-timer.C:
+		log.Printf("watchdog: child did not stop within %v; killing it", gracefulStopTimeout)
+	}
+	_ = cmd.Process.Kill()
+	<-childDone
 }

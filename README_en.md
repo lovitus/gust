@@ -152,9 +152,16 @@ bash <(curl -fsSL https://raw.githubusercontent.com/lovitus/gust/master/install.
 
 ```
 git clone https://github.com/lovitus/gust.git
-cd gust/cmd/gost
-go build
+git clone https://github.com/lovitus/gust-x.git
+cd gust
+go build -trimpath -o gust ./cmd/gost
 ```
+
+The `gust` module uses the matching implementation repository through the
+`../gust-x` replacement in `go.mod`, so keep both clones as sibling directories
+and use the same product branch in each. For `singbox-backend`, switch both
+repositories and then build with the pinned tags documented in
+`SINGBOX-NOTICE.md`.
 
 ### Docker
 
