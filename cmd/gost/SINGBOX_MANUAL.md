@@ -356,6 +356,21 @@ TCP works through ordinary HTTP/SOCKS local services. For applications that
 need UDP, use a UDP-capable local handler such as SOCKS5 and an outbound that
 supports UDP. Hysteria2 and TUIC are validated for both TCP and UDP data paths.
 
+GOST SOCKS5 listeners do not enable UDP relay by default. Add `udp=true` to
+the local listener when clients use SOCKS5 UDP ASSOCIATE:
+
+```bash
+gost -L 'socks5://127.0.0.1:1080?udp=true' \
+  -F 'socks5+singbox://user:password@proxy.example.com:1080?network=tcp,udp'
+```
+
+On a server with a restrictive firewall, reserve and allow an explicit relay
+range, for example
+`?udp=true&udp.minPort=20000&udp.maxPort=20100`. The TCP listener port and the
+chosen UDP relay range must both be reachable by the client. An embedded
+sing-box outbound accepts both connected UDP destinations and the unconnected
+packet connection used by GOST's SOCKS5 UDP ASSOCIATE handler.
+
 For proxy outbounds, the UDP `net.Conn` adapter passes a destination hostname
 to sing-box as a SOCKS domain address without resolving it locally. This allows
 remote-only UDP target names when the selected protocol supports domain
