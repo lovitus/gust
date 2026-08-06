@@ -1,30 +1,30 @@
 class Gust < Formula
   desc "GOST fork with SSH relay fallback enhancements"
   homepage "https://github.com/lovitus/gust"
-  version "3.2.8"
+  version "3.2.10"
   license "MIT"
 
   on_macos do
     on_arm do
-      url "https://github.com/lovitus/gust/releases/download/v3.2.8/gost-darwin-arm64-3.2.8.tar.gz"
-      sha256 "918176ebc8fa7e1a57537c89d95d2187c44ed46741d11c8e5c51171b4fa31315"
+      url "https://github.com/lovitus/gust/releases/download/v3.2.10/gost-darwin-arm64-3.2.10.tar.gz"
+      sha256 "598755b3432ba09ceba985e90510daaeaa7ccb4f81fb6efcc064dd3264c95dca"
     end
 
     on_intel do
-      url "https://github.com/lovitus/gust/releases/download/v3.2.8/gost-darwin-amd64-3.2.8.tar.gz"
-      sha256 "928a7e264b388a9f77ed02f6aeffd0814bb19ea016fec5cd6b337741b8057243"
+      url "https://github.com/lovitus/gust/releases/download/v3.2.10/gost-darwin-amd64-3.2.10.tar.gz"
+      sha256 "552a5522b9448530d2218f8472fedb41889545c001524da130fb041ffab5a0a5"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/lovitus/gust/releases/download/v3.2.8/gost-linux-arm64-3.2.8.tar.gz"
-      sha256 "76b4b5f54b60d3a97f0d938da9e4da3358e0b2550319ae12d33a2a7cb37cf3b1"
+      url "https://github.com/lovitus/gust/releases/download/v3.2.10/gost-linux-arm64-3.2.10.tar.gz"
+      sha256 "f52bad369b1806e064fee4f2c1c6e8f8ee5cfb69b0dd3493394edbbf5f9bbe53"
     end
 
     on_intel do
-      url "https://github.com/lovitus/gust/releases/download/v3.2.8/gost-linux-amd64-3.2.8.tar.gz"
-      sha256 "eb8257fb58ecbaf51f25e75185187bafbeca661631b383ef5aa1da8141dc836f"
+      url "https://github.com/lovitus/gust/releases/download/v3.2.10/gost-linux-amd64-3.2.10.tar.gz"
+      sha256 "ba37f45a94d4c7f2864523eb8e1960a30abb8de597b05eb51ad552f94b36a76b"
     end
   end
 
