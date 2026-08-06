@@ -84,6 +84,9 @@ jobs:
             exit 1
           }
 
+      - name: Test release helper scripts
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+
       - name: Download gust-x modules
         working-directory: ../gust-x
         run: go mod download

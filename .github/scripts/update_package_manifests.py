@@ -51,6 +51,13 @@ def load_checksums(path: Path) -> dict[str, str]:
         if len(fields) != 2:
             continue
         checksum, filename = fields
+        # sha256sum commonly prefixes paths with "./" when its input is
+        # expanded from ./*. It may also use a leading "*" to mark binary
+        # mode. Release asset names contain neither marker.
+        if filename.startswith("*"):
+            filename = filename[1:]
+        while filename.startswith("./"):
+            filename = filename[2:]
         checksums[filename] = checksum
     return checksums
 
