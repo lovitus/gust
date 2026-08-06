@@ -72,7 +72,7 @@ gost -L 'socks5://127.0.0.1:1080' \
   -F 'ss+singbox://chacha20-ietf-poly1305:SECRET@proxy.example.com:8388'
 
 # SOCKS5 upstream, TCP and UDP
-gost -L 'socks5://127.0.0.1:1080' \
+gost -L 'socks5://127.0.0.1:1080?udp=true' \
   -F 'socks5+singbox://USER:PASSWORD@proxy.example.com:1080?network=tcp,udp'
 
 # HTTP upstream

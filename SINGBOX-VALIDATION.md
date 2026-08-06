@@ -1,11 +1,12 @@
 # Embedded sing-box acceptance record
 
-Status: PASS  
-Validation date: 2026-08-05  
-Validated Gust implementation revision: `a99a832578b9c31ffa90b93e40eee710b1e9b716`  
-Validated gust-x implementation revision: `c77114a3625b334d6bc79548c3f20f5394238966`  
-Pinned sing-box: `v1.13.16`  
-Go toolchain: `go1.26.3`
+- Status: PASS
+- Validation date: 2026-08-06
+- Validated Gust implementation revision: `b522126c9e16fb180c736545b1510352ec91dad8`
+- Validated CI workflow revision: `dbf7d291d2c99550d61c25311c9dedd571741525`
+- Validated gust-x revision: `db85df20eb30b59fab523d652b194b8f895c2642`
+- Pinned sing-box: `v1.13.16`
+- Go toolchain: `go1.26.5`
 
 This is the acceptance record for the embedded sing-box delivery, not a claim
 that every unrelated upstream or historical repository test has no known
@@ -14,13 +15,16 @@ platform gates used to approve this feature.
 
 ## Automated acceptance runs
 
-- Go CI: <https://github.com/lovitus/gust/actions/runs/30987889577>
+- Go CI: <https://github.com/lovitus/gust/actions/runs/31072461492>
   - Result: PASS, 12 of 12 jobs.
   - Core tests, standard/singbox flavor separation, embedded backend tests,
     Linux Naive runtime check, five cross-build jobs and six native platform
     smoke jobs all completed successfully.
-- Release dry-run: <https://github.com/lovitus/gust/actions/runs/30987899192>
-  - Result: PASS, 13 build jobs.
+- Compatibility matrix: <https://github.com/lovitus/gust/actions/runs/31072461526>
+  - Result: PASS for pinned and `latest`; both resolved to sing-box v1.13.16 at
+    validation time, using Go 1.26.5.
+- Release dry-run: <https://github.com/lovitus/gust/actions/runs/31072097266>
+  - Result: PASS, six build jobs and six retained platform artifacts.
   - The publish job was intentionally skipped because this was a manual
     build-only validation, so no tag or GitHub Release was created.
 
@@ -50,7 +54,7 @@ through the embedded client; a successful port open alone is not counted.
 | Protocol/transport | TCP | UDP | Notes |
 |---|---:|---:|---|
 | Shadowsocks | PASS | not a protocol-specific gate | `chacha20-ietf-poly1305` data plane |
-| SOCKS4/4a/5 | PASS | PASS | authentication and GOST-prefix UDP route covered |
+| SOCKS4/4a/5 | PASS | PASS | authentication, GOST-prefix UDP and SOCKS5 UDP ASSOCIATE covered |
 | HTTP proxy | PASS | n/a | authenticated upstream |
 | VMess | PASS | not a protocol-specific gate | native TCP and WebSocket |
 | VLESS | PASS | not a protocol-specific gate | native TCP, WebSocket TLS, HTTP/2 TLS and gRPC TLS |
@@ -81,6 +85,7 @@ matching Cronet runtime.
 | Full-config selector uses GOST prefix route | PASS |
 | Full-config hosts-based DNS dependency retained | PASS |
 | Remote DNS transport automatically follows the GOST prefix | PASS, real UDP query and route-dial assertion |
+| Unconnected UDP PacketConn used by SOCKS5 UDP ASSOCIATE | PASS, arbitrary `WriteTo` destination |
 | Endpoint prefix injection | PASS |
 | Copying a route preserves runtime ownership | PASS |
 | Probe uses an explicit target for self-dialing node | PASS |
@@ -131,6 +136,33 @@ checks also cover LF-stable GPL checksum validation, Windows ZIP creation and
 extraction, runtime library placement, license/notice inclusion and flavor
 inspection with `go version -m`.
 
+## Multi-host operational acceptance
+
+The release-dry-run artifacts were also exercised outside GitHub Actions on
+two independent Linux amd64 VPS hosts and one Darwin arm64 host on the
+maintainer network. Temporary listeners, credentials, firewall rules and test
+files were isolated from the repositories and removed after acceptance.
+
+| Scenario | Result |
+|---|---|
+| Linux VPS A to VPS B controlled HTTP/TCP payload | PASS |
+| Linux VPS B to VPS A controlled HTTP/TCP payload | PASS |
+| Darwin CLI `protocol+singbox://` | PASS |
+| Darwin inline node JSON | PASS |
+| Darwin mixed `-C`, `-L` and `-F` | PASS |
+| Darwin two-hop standard GOST plus sing-box chain | PASS |
+| SOCKS5 UDP ASSOCIATE through sing-box to controlled UDP echo | PASS on Darwin and Linux |
+| Actual UDP DNS query through sing-box | PASS on Darwin and Linux |
+| Remote DNS resolves the proxy hostname through the preceding GOST hop | PASS |
+
+The Darwin and Linux binaries came from run `31072097266`; their manifests
+identified the Gust implementation and gust-x revisions above, plus Go 1.26.5.
+The Linux package included and loaded `libcronet.so`; the Darwin package
+correctly declared Naive and CCM unavailable. TCP checks required the expected
+application response body. UDP checks required an echoed datagram, and DNS
+checks parsed a DNS response with the matching transaction ID and at least one
+answer.
+
 ## Commands used by maintainers
 
 ```bash
@@ -171,6 +203,9 @@ tests.
 - Protocol UDP data-path gates include a remote-only domain association that
   is preserved as a SOCKS address without local resolution. Direct UDP still
   uses local DNS by design because no remote resolver exists.
+- GOST's empty-destination UDP dial is retained as an unconnected packet
+  connection, so a SOCKS5 listener can relay each UDP ASSOCIATE datagram to
+  the destination supplied to `WriteTo`.
 - Full-config DNS gates cover both the sing-box `hosts` transport and a real
   networked UDP DNS transport automatically attached to the preceding prefix.
 - Darwin release assets use a reproducible `CGO_ENABLED=0` limited feature set

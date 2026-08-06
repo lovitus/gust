@@ -21,6 +21,7 @@ func TestSingboxManualEmbedded(t *testing.T) {
 		"## Proxy chains",
 		"vless+singbox://",
 		"config=/etc/sing-box/config.json",
+		"udp=true",
 	} {
 		if !strings.Contains(manual, required) {
 			t.Errorf("embedded manual is missing %q", required)
