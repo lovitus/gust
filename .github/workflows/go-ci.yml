@@ -24,7 +24,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      GO_VERSION: 1.26.3
+      GO_VERSION: 1.26.5
     steps:
       - name: Checkout gust
         uses: actions/checkout@v4
@@ -69,18 +69,28 @@ jobs:
           TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
         run: bash .github/scripts/check_branch_policy.sh "${TARGET_BRANCH}" ../gust-x
 
+      - name: Validate PowerShell build script syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ./build-all.ps1),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -ne 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
+
       - name: Download gust-x modules
         working-directory: ../gust-x
         run: go mod download
 
       - name: Test gust-x
         working-directory: ../gust-x
-        # These four failures reproduce unchanged on go-gost/x master at
-        # 7f72a81864c75171baa90cb114d2becae050038a with Go 1.26.3.
-        run: >-
-          go test
-          -skip '^(TestInit_DefaultExchanger|TestHandleHTTP_BasicProxy|TestWrapListenerAccept)$'
-          ./...
+        run: go test ./...
 
       - name: Download gust modules
         run: go mod download

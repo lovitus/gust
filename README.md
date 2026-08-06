@@ -146,9 +146,14 @@ bash <(curl -fsSL https://raw.githubusercontent.com/lovitus/gust/master/install.
 
 ```
 git clone https://github.com/lovitus/gust.git
-cd gust/cmd/gost
-go build
+git clone https://github.com/lovitus/gust-x.git
+cd gust
+go build -trimpath -o gust ./cmd/gost
 ```
+
+`gust` 的 `go.mod` 通过 `../gust-x` 使用配套实现仓库，因此两个仓库必须保持上述
+同级目录结构，并使用同名产品分支。构建 `singbox-backend` 时应同时切换两个仓库，
+再按 `SINGBOX-NOTICE.md` 中的固定 tags 构建。
 
 ### Docker
 

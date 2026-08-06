@@ -87,18 +87,11 @@ func parseResolvConf(path string) []string {
 			continue
 		}
 		ip := fields[1]
-		if ip == "" || ip == "0.0.0.0" {
+		parsed := net.ParseIP(ip)
+		if parsed == nil || parsed.IsUnspecified() {
 			continue
 		}
-		if !strings.Contains(ip, ":") || net.ParseIP(ip) != nil {
-			// IPv4 or valid IPv6 — append port
-			if !strings.Contains(ip, ":") {
-				ip += ":53"
-			} else {
-				ip = "[" + ip + "]:53"
-			}
-			servers = append(servers, ip)
-		}
+		servers = append(servers, net.JoinHostPort(ip, "53"))
 	}
 	return servers
 }

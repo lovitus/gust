@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Build-only version used for artifact validation (no release is published)
+        required: true
+        default: 0.0.0-ci
 
 permissions:
   contents: write
@@ -15,30 +21,52 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  GO_VERSION: '1.26'
+  GO_VERSION: '1.26.5'
+  NFPM_VERSION: 'v2.47.0'
 
 jobs:
   guard:
     name: validate standard release source
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Require master and the standard tag namespace
+      - name: Require master and resolve build metadata
+        id: meta
         shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF_TYPE}" != tag || "${GITHUB_REF_NAME}" != v* ]]; then
-            echo "standard release tags must match v*" >&2
+          git fetch origin '+refs/heads/master:refs/remotes/origin/master'
+          if [[ "${GITHUB_EVENT_NAME}" == push ]]; then
+            if [[ "${GITHUB_REF_TYPE}" != tag || "${GITHUB_REF_NAME}" != v* ]]; then
+              echo "standard release tags must match v*" >&2
+              exit 1
+            fi
+            TAG="${GITHUB_REF_NAME}"
+          else
+            if [[ "${GITHUB_REF_TYPE}" != branch || "${GITHUB_REF_NAME}" != master ]]; then
+              echo "build-only validation must run from master" >&2
+              exit 1
+            fi
+            TAG="v${INPUT_VERSION#v}"
+          fi
+          if [[ ! "${TAG}" =~ ^v[0-9A-Za-z][0-9A-Za-z._-]*$ ]]; then
+            echo "invalid build version: ${TAG}" >&2
             exit 1
           fi
-          git fetch origin '+refs/heads/master:refs/remotes/origin/master'
           if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/master; then
             echo "${GITHUB_SHA} is not contained in origin/master" >&2
             exit 1
           fi
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "version=${TAG#v}" >> "${GITHUB_OUTPUT}"
 
   build:
     name: build / ${{ matrix.group }}
@@ -70,9 +98,19 @@ jobs:
         with:
           fetch-depth: 0
       - name: Checkout gust-x
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch master
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="$(tr -d '[:space:]' < .github/master-gust-x.ref)"
+          if [[ ! "${ref}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "invalid gust-x pin: ${ref}" >&2
+            exit 1
+          fi
+          git init ../gust-x
+          git -C ../gust-x remote add origin https://github.com/lovitus/gust-x.git
+          git -C ../gust-x fetch --depth 1 origin "${ref}"
+          git -C ../gust-x checkout --detach FETCH_HEAD
+          test "$(git -C ../gust-x rev-parse HEAD)" = "${ref}"
 
       - uses: actions/setup-go@v5
         with:
@@ -89,7 +127,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ needs.guard.outputs.version }}"
+          BUILD_TAG="${{ needs.guard.outputs.tag }}"
           mkdir -p dist
 
           read -r -a targets <<< "${{ matrix.targets }}"
@@ -120,7 +159,7 @@ jobs:
 
             echo "building ${NAME}..."
             env "${build_env[@]}" \
-              go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" \
+              go build -trimpath -ldflags="-s -w -X main.version=${BUILD_TAG}" \
               -o "$BIN" ./cmd/gost
 
             if [[ "$GOOS" == "windows" ]]; then
@@ -155,6 +194,7 @@ jobs:
   release:
     name: publish release
     needs: build
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
       - name: Resolve release metadata
@@ -220,7 +260,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y apt-utils createrepo-c dpkg-dev gnupg rpm
-          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          go install "github.com/goreleaser/nfpm/v2/cmd/nfpm@${NFPM_VERSION}"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Build Linux packages

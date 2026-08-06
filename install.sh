@@ -55,13 +55,13 @@ detect_arch() {
         i386|i686)
             echo "386"
             ;;
-        mips64le*)
+        mips64el*|mips64le*)
             echo "mips64le"
             ;;
         mips64*)
             echo "mips64"
             ;;
-        mipsle*)
+        mipsel*|mipsle*)
             echo "mipsle-softfloat"
             ;;
         mips*)
