@@ -238,7 +238,7 @@ jobs:
           - goos: windows
             goarch: arm64
     env:
-      GO_VERSION: 1.26.3
+      GO_VERSION: 1.26.5
     steps:
       - name: Checkout gust
         uses: actions/checkout@v4
@@ -312,7 +312,7 @@ jobs:
             goos: windows
             goarch: arm64
     env:
-      GO_VERSION: 1.26.3
+      GO_VERSION: 1.26.5
     steps:
       - name: Checkout gust
         uses: actions/checkout@v4
