@@ -345,8 +345,11 @@ node, its network leaf uses the request-scoped GOST prefix route. A prefix
 failure is fail-closed and does not silently fall back to the system network.
 
 A complete sing-box config may contain its own `detour`, selector and DNS
-dependencies. These remain internal to the selected runtime while the final
-network leaf still observes the preceding GOST route.
+dependencies. Outbound and endpoint leaves without a user detour observe the
+preceding GOST route. A remote DNS transport is a separate dialer: give it an
+explicit `detour` that reaches an outbound in the selected graph when the DNS
+exchange must also traverse the GOST prefix. Without that detour, sing-box may
+use its normal system-network DNS path.
 
 ## TCP, UDP and DNS usage
 
@@ -354,11 +357,42 @@ TCP works through ordinary HTTP/SOCKS local services. For applications that
 need UDP, use a UDP-capable local handler such as SOCKS5 and an outbound that
 supports UDP. Hysteria2 and TUIC are validated for both TCP and UDP data paths.
 
+The current UDP `net.Conn` adapter resolves a destination hostname locally when
+the UDP association is created. Use an IP-literal UDP target, or arrange local
+resolution through a controlled GOST resolver, when local DNS must not be used.
+Remote-only UDP target resolution is not yet covered by this integration.
+
 DNS can be handled in either layer:
 
 - Configure a GOST DNS service/resolver in the Gust `-C` file.
 - Load a full sing-box config whose selected outbound depends on its sing-box
-  DNS configuration.
+  DNS configuration. For a networked sing-box DNS server that must follow a
+  preceding GOST node, configure the DNS server's `detour` explicitly as
+  described above.
+
+For example, use an IP-literal DNS server and route its transport through a
+dedicated outbound. Prefix injection then attaches that outbound leaf to the
+preceding GOST route:
+
+```json
+{
+  "dns": {
+    "servers": [
+      {"type": "udp", "tag": "remote-dns", "server": "1.1.1.1", "detour": "dns-egress"}
+    ]
+  },
+  "outbounds": [
+    {"type": "direct", "tag": "dns-egress"},
+    {
+      "type": "socks",
+      "tag": "proxy",
+      "server": "proxy.example.com",
+      "server_port": 1080,
+      "domain_resolver": "remote-dns"
+    }
+  ]
+}
+```
 
 When testing DNS, send an actual DNS query through the configured path. A TCP
 connection to port 53 does not validate UDP DNS, and a single public resolver

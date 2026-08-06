@@ -32,8 +32,10 @@ gust-x commits, Go version, target, build tags and unavailable features used
 for that binary. The build command is equivalent to:
 
 ```sh
+TAG=singbox-vX.Y.Z
 CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
   go build -trimpath -tags "$(bash .github/scripts/singbox-tags.sh --target "$GOOS" "$GOARCH")" \
+  -ldflags="-s -w -X main.version=${TAG}" \
   -o gust-with-singbox ./cmd/gost
 ```
 

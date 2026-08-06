@@ -79,15 +79,19 @@ matching Cronet runtime.
 | TCP and UDP through request-scoped prefix route | PASS |
 | Prefix route failure remains fail-closed | PASS |
 | Full-config selector uses GOST prefix route | PASS |
-| Full-config DNS dependency retained | PASS |
+| Full-config hosts-based DNS dependency retained | PASS |
+| Remote DNS transport automatically follows the GOST prefix | NOT COVERED; explicit detour currently required |
 | Endpoint prefix injection | PASS |
 | Copying a route preserves runtime ownership | PASS |
 | Probe uses an explicit target for self-dialing node | PASS |
 
-DNS acceptance resolves a controlled hostname through a real full-config DNS
-dependency and then carries an application payload through the selected
-outbound. Operational DNS checks use an actual query and do not infer UDP/DNS
-support from TCP port 53 or from one external resolver.
+DNS acceptance resolves a controlled hostname through a full-config `hosts`
+DNS dependency and then carries an application payload through the selected
+outbound. It does not exercise a networked DNS transport through a preceding
+GOST route. Such a DNS server currently needs an explicit detour to an outbound
+in the selected graph; otherwise it may use sing-box's system-network path.
+Operational DNS checks use an actual query and do not infer UDP/DNS support
+from TCP port 53 or from one external resolver.
 
 ## Lifecycle, concurrency and robustness
 
@@ -164,6 +168,12 @@ tests.
 - The embedded backend implements outbound and endpoint use. `-L` does not map
   arbitrary sing-box inbounds, and complete configs containing inbounds are
   rejected.
+- Protocol UDP data-path gates use IP-literal targets. The current UDP
+  `net.Conn` adapter resolves target hostnames locally, so remote-only UDP
+  destination resolution is not an accepted capability yet.
+- The full-config DNS gate uses the sing-box `hosts` transport. Networked DNS
+  transports are not automatically attached to a preceding GOST prefix and
+  require an explicit detour until that integration is implemented.
 - Darwin release assets use a reproducible `CGO_ENABLED=0` limited feature set
   and intentionally omit Naive and CCM.
 - Formal publishing was not part of the dry-run: merge approval, release tag
