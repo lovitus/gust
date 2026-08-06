@@ -99,6 +99,8 @@ jobs:
           fetch-depth: 0
       - name: Checkout gust-x
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -euo pipefail
           ref="$(tr -d '[:space:]' < .github/master-gust-x.ref)"
@@ -106,6 +108,7 @@ jobs:
             echo "invalid gust-x pin: ${ref}" >&2
             exit 1
           fi
+          gh auth setup-git
           git init ../gust-x
           git -C ../gust-x remote add origin https://github.com/lovitus/gust-x.git
           git -C ../gust-x fetch --depth 1 origin "${ref}"
