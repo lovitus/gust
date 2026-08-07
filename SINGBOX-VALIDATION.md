@@ -1,9 +1,11 @@
 # Embedded sing-box acceptance record
 
-- Status: CANDIDATE — implementation, local matrix, fixed-runner performance
-  and six-host fleet validation pass; GitHub workflow certification is pending.
+- Status: PASS — implementation, local matrix, fixed-runner performance,
+  six-host fleet validation, required GitHub workflows and the six-platform
+  build-only release rehearsal pass.
 - Validation date: 2026-08-07
 - Gust branch: `singbox-backend`
+- Certified Gust revision: `05f75b85191ef3fab52a55a3eeb97cf036e72d42`
 - gust-x revision: `713e879c97dba1ea0976e63b709030954ccacd74`
 - Pinned sing-box: `v1.13.16`
 - Certification toolchain: `go1.26.5`
@@ -260,10 +262,13 @@ GOMAXPROCS=2 GUST_SINGBOX_RESOURCE_BOXES=50 ./singbox.test \
 python3 .github/scripts/check_singbox_performance.py
 ```
 
-## Remaining publication gate
+## Certification evidence
 
-The candidate becomes PASS only after the updated gust-x pin and Gust branch
-complete every required GitHub workflow, including standard isolation,
-privileged Linux, protocol data paths, cross-build/native smoke, packaging and
-release rehearsal. Publishing still requires a clean pushed source branch and
-an `singbox-v*` tag contained in `origin/singbox-backend`.
+- Required Go CI: [run 31180683865](https://github.com/lovitus/gust/actions/runs/31180683865)
+- Pinned/latest compatibility: [run 31181011275](https://github.com/lovitus/gust/actions/runs/31181011275)
+- Six-platform build-only release rehearsal: [run 31180723307](https://github.com/lovitus/gust/actions/runs/31180723307)
+
+The acceptance matrix is PASS. Publishing still requires a clean pushed source
+branch and an `singbox-v*` tag contained in `origin/singbox-backend`; the tag
+workflow independently repeats all six package builds before creating the
+GitHub Release.
