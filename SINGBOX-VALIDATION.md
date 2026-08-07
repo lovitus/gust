@@ -4,7 +4,7 @@
   and six-host fleet validation pass; GitHub workflow certification is pending.
 - Validation date: 2026-08-07
 - Gust branch: `singbox-backend`
-- gust-x revision: `92a3eb030492d75ead312d07ef481a00fdd9ce41`
+- gust-x revision: `75cab6cce7d0a2f885e652633742aedfc03fedb5`
 - Pinned sing-box: `v1.13.16`
 - Certification toolchain: `go1.26.5`
 
@@ -135,6 +135,7 @@ domain destination, remote DNS, selector, detour and endpoint coverage.
 | Native `-L ->` system direct | PASS |
 | Native `-L ->` ordinary GOST `-F` | PASS |
 | Native `-L ->` sing-box `-F` | PASS |
+| Native `-L ->` ordinary `-F ->` sing-box `-F` registry isolation | PASS |
 | Ordinary and embedded nodes mixed in one chain | PASS |
 | Multiple non-contiguous embedded nodes | PASS |
 | Two embedded outbound nodes | PASS |
@@ -180,21 +181,21 @@ sing-box v1.13.16, full feature tags, CGO disabled, loopback MTU 65536.
 
 | Comparison | Official median | Gust median | Ratio | Gate | Result |
 |---|---:|---:|---:|---:|---:|
-| TCP throughput, 64 KiB echo | 699.66 MB/s | 703.35 MB/s | 100.53% | >=90% | PASS |
-| UDP PPS, 1200-byte echo | 10,844 PPS | 10,945 PPS | 100.92% | >=90% | PASS |
-| TCP round-trip p95 / p99 | 106.934 / 117.003 us | 106.740 / 116.663 us | 99.82% / 99.71% | <=110% | PASS |
-| UDP round-trip p95 / p99 | 106.128 / 115.864 us | 105.009 / 115.786 us | 98.95% / 99.93% | <=110% | PASS |
-| Internal egress UDP write | n/a | 152.0 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
-| Fixed-port reload pause | n/a | 3.77 ms median, 3.79 ms p95 | n/a | p95 <=5 ms | PASS |
+| TCP throughput, 64 KiB echo | 701.04 MB/s | 700.44 MB/s | 99.91% | >=90% | PASS |
+| UDP PPS, 1200-byte echo | 10,864 PPS | 10,927 PPS | 100.58% | >=90% | PASS |
+| TCP round-trip p95 / p99 | 105.730 / 114.568 us | 105.858 / 115.379 us | 100.12% / 100.71% | <=110% | PASS |
+| UDP round-trip p95 / p99 | 105.480 / 116.982 us | 105.210 / 117.272 us | 99.74% / 100.25% | <=110% | PASS |
+| Internal egress UDP write | n/a | 151.0 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
+| Fixed-port reload pause | n/a | 3.75 ms median, 3.77 ms p95 | n/a | p95 <=5 ms | PASS |
 
 Resource medians for the one-Box-per-`-L` baseline:
 
 | Boxes | Startup | Live heap delta | Goroutine delta | FD delta | Median max RSS |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 5.04 ms | 342,392 B | 8 | 4 | 19,525,632 B |
-| 2 | 8.05 ms | 609,360 B | 16 | 8 | 20,230,144 B |
-| 10 | 33.19 ms | 3,042,080 B | 80 | 40 | 23,891,968 B |
-| 50 | 216.79 ms | 15,203,776 B | 400 | 200 | 41,893,888 B |
+| 1 | 5.04 ms | 305,304 B | 8 | 4 | 19,546,112 B |
+| 2 | 8.07 ms | 646,096 B | 16 | 8 | 20,127,744 B |
+| 10 | 32.65 ms | 3,042,608 B | 80 | 40 | 23,592,960 B |
+| 50 | 217.14 ms | 15,204,064 B | 400 | 200 | 42,160,128 B |
 
 Every one of the 20 fresh-process resource samples returned goroutine and FD
 counts exactly to its pre-start baseline after Close. These numbers prove the
@@ -212,6 +213,14 @@ the same Darwin arm64 binary was used on the macOS machine.
 | Overseas Linux VPS A | PASS | TUN/REDIRECT/TProxy PASS |
 | Overseas Linux VPS B | PASS | TUN/REDIRECT PASS; nested-netns TProxy unavailable |
 | Internal Darwin arm64 | PASS | Linux-only, n/a |
+
+The final CLI fleet pass used self-started services only. All six machines ran
+three independent native `-L` services sharing one embedded direct chain and
+passed TCP, UDP and an actual DNS query. A three-machine internal chain and a
+two-VPS overseas chain additionally ran native SOCKS inbound -> ordinary GOST
+SOCKS prefix -> embedded Shadowsocks outbound -> native Shadowsocks inbound;
+TCP, UDP and DNS passed end to end. This run exposed and then regression-tested
+the inbound/outbound registry-scope isolation boundary.
 
 On VPS B, the kernel accepted the TPROXY target, incremented firewall counters
 and loaded the required modules, but did not deliver marked traffic inside the
