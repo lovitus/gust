@@ -136,6 +136,9 @@ jobs:
             exit 1
           fi
 
+      - name: Verify standard and singbox flavors
+        run: bash .github/scripts/verify_singbox_flavors.sh
+
       - name: Test gust-x
         working-directory: ../gust-x
         run: >-
@@ -188,79 +191,6 @@ jobs:
             -test.v \
             -test.timeout=3m \
             -test.run='^TestEmbeddedLinuxPrivilegedInboundMatrix$'
-
-      - name: Verify standard and singbox flavors
-        shell: bash
-        run: |
-          set -euo pipefail
-          tags="$(bash .github/scripts/singbox-tags.sh)"
-          standard_bin="${RUNNER_TEMP}/gust-standard"
-          singbox_bin="${RUNNER_TEMP}/gust-with-singbox"
-
-          go build -trimpath -o "${standard_bin}" ./cmd/gost
-          go build -trimpath -tags "${tags}" -o "${singbox_bin}" ./cmd/gost
-
-          "${standard_bin}" -V | tee "${RUNNER_TEMP}/standard-version.txt"
-          "${singbox_bin}" -V | tee "${RUNNER_TEMP}/singbox-version.txt"
-          grep -F 'flavor=standard' "${RUNNER_TEMP}/standard-version.txt"
-          grep -F 'flavor=singbox' "${RUNNER_TEMP}/singbox-version.txt"
-
-          for binary in "${standard_bin}" "${singbox_bin}"; do
-            "${binary}" -singboxmanual > "${RUNNER_TEMP}/singbox-manual.txt"
-            grep -F '# Gust embedded sing-box manual' "${RUNNER_TEMP}/singbox-manual.txt"
-            grep -F '## CLI configuration' "${RUNNER_TEMP}/singbox-manual.txt"
-            grep -F '## Gust JSON configuration' "${RUNNER_TEMP}/singbox-manual.txt"
-            grep -F '## Mixed CLI and JSON configuration' "${RUNNER_TEMP}/singbox-manual.txt"
-          done
-
-          if go version -m "${standard_bin}" | grep -F $'github.com/sagernet/sing-box\t'; then
-            echo 'standard binary unexpectedly links sing-box' >&2
-            exit 1
-          fi
-          go version -m "${singbox_bin}" | grep -F $'github.com/sagernet/sing-box\t'
-
-          python3 tests/e2e/scripts/tcp_echo.py >"${RUNNER_TEMP}/echo.log" 2>&1 &
-          echo_pid=$!
-          (
-            cd "${RUNNER_TEMP}"
-            "${singbox_bin}" \
-              -L 'http://127.0.0.1:18888' \
-              -L 'socks5+singbox://user:password@127.0.0.1:18889' \
-              -L 'http+singbox://user:password@127.0.0.1:18890' \
-              -L 'singbox://?json={"type":"mixed","listen":"127.0.0.1","listen_port":18891}' \
-              -F 'direct+singbox://' >"${RUNNER_TEMP}/singbox-e2e.log" 2>&1
-          ) &
-          gust_pid=$!
-          # shellcheck disable=SC2329 # invoked by trap
-          cleanup() {
-            kill "${gust_pid}" "${echo_pid}" 2>/dev/null || true
-            wait "${gust_pid}" "${echo_pid}" 2>/dev/null || true
-          }
-          trap cleanup EXIT
-
-          ready=false
-          for _ in {1..30}; do
-            if curl --fail --silent --show-error --max-time 2 \
-              --proxy http://127.0.0.1:18888 http://127.0.0.1:5678 \
-              | grep -Fx 'hello-gost'; then
-              ready=true
-              break
-            fi
-            sleep 0.2
-          done
-          if [[ "${ready}" != true ]]; then
-            cat "${RUNNER_TEMP}/singbox-e2e.log" >&2
-            exit 1
-          fi
-          curl --fail --silent --show-error --max-time 2 \
-            --proxy 'socks5h://user:password@127.0.0.1:18889' \
-            http://127.0.0.1:5678 | grep -Fx 'hello-gost'
-          curl --fail --silent --show-error --max-time 2 \
-            --proxy 'http://user:password@127.0.0.1:18890' \
-            http://127.0.0.1:5678 | grep -Fx 'hello-gost'
-          curl --fail --silent --show-error --max-time 2 \
-            --proxy 'socks5h://127.0.0.1:18891' \
-            http://127.0.0.1:5678 | grep -Fx 'hello-gost'
 
   singbox-cross-build:
     name: singbox cross-build / ${{ matrix.goos }}-${{ matrix.goarch }}
