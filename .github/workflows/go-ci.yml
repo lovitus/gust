@@ -190,7 +190,7 @@ jobs:
           (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -p 1 -tags "${tags}" \
             -run "${protocol_tests}" ./backend/singbox)
 
-      - name: Build privileged Linux test artifact
+      - name: Test privileged Linux sing-box inbounds
         if: ${{ matrix.suite == 'embedded' }}
         shell: bash
         run: |
@@ -203,42 +203,35 @@ jobs:
             go -C ../gust-x test -c -tags "${tags}" \
             -o "${artifact_dir}/singbox-privileged.test" ./backend/singbox
           cp "${cronet_dir}/libcronet.so" "${artifact_dir}/libcronet.so"
+          container_name="gust-singbox-privileged-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cleanup() {
+            docker rm -f "${container_name}" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
 
-      - name: Upload privileged Linux test artifact
-        if: ${{ matrix.suite == 'embedded' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: singbox-privileged-linux-amd64
-          path: ${{ runner.temp }}/singbox-privileged-artifact
-          retention-days: 1
-
-  singbox-privileged:
-    name: singbox privileged runtime / linux-amd64
-    needs: test
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Download test artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: singbox-privileged-linux-amd64
-          path: ${{ runner.temp }}/singbox-privileged-artifact
-
-      - name: Run privileged Linux inbound matrix
-        shell: bash
-        run: |
-          set -euo pipefail
-          artifact_dir="${RUNNER_TEMP}/singbox-privileged-artifact"
-          test_binary="${artifact_dir}/singbox-privileged.test"
-          chmod +x "${test_binary}"
-          sudo env \
-            LD_LIBRARY_PATH="${artifact_dir}" \
-            GUST_SINGBOX_PRIVILEGED_TESTS=1 \
-            unshare --pid --fork --mount-proc --kill-child=KILL \
-            timeout --signal=TERM --kill-after=30s 5m "${test_binary}" \
-            -test.v \
-            -test.timeout=3m \
-            -test.run='^TestEmbeddedLinuxPrivilegedInboundMatrix$'
+          # Keep CAP_NET_ADMIN, root descendants, PID namespaces and mounts
+          # inside Docker's lifecycle. Running these directly under sudo can
+          # leave the hosted Actions runner unable to settle the job even
+          # after its Complete job step has been reported successfully.
+          timeout --signal=TERM --kill-after=30s 8m \
+            docker run \
+              --name "${container_name}" \
+              --rm \
+              --init \
+              --privileged \
+              --volume "${artifact_dir}:/artifact:ro" \
+              --env LD_LIBRARY_PATH=/artifact \
+              --env GUST_SINGBOX_PRIVILEGED_TESTS=1 \
+              ubuntu:24.04 \
+              bash -ceu '
+                export DEBIAN_FRONTEND=noninteractive
+                apt-get update -qq
+                apt-get install -y -qq --no-install-recommends iproute2 iptables util-linux
+                exec /artifact/singbox-privileged.test \
+                  -test.v \
+                  -test.timeout=3m \
+                  -test.run="^TestEmbeddedLinuxPrivilegedInboundMatrix$"
+              '
 
   singbox-cross-build:
     name: singbox cross-build / ${{ matrix.goos }}-${{ matrix.goarch }}
