@@ -28,27 +28,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [core, flavors, embedded, privileged]
+        suite: [core, flavors, embedded]
     env:
       GO_VERSION: 1.26.5
     steps:
       - name: Checkout gust
-        if: ${{ matrix.suite != 'privileged' }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Checkout gust for privileged suite
-        if: ${{ matrix.suite == 'privileged' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          git init .
-          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
-          git fetch --no-tags origin \
-            "+${GITHUB_REF}:refs/remotes/origin/validation"
-          git checkout --detach refs/remotes/origin/validation
-          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -203,26 +190,49 @@ jobs:
           (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -p 1 -tags "${tags}" \
             -run "${protocol_tests}" ./backend/singbox)
 
-      - name: Build privileged Linux test binary
-        if: ${{ matrix.suite == 'privileged' }}
+      - name: Build privileged Linux test artifact
+        if: ${{ matrix.suite == 'embedded' }}
         shell: bash
         run: |
           set -euo pipefail
           tags="$(bash .github/scripts/singbox-tags.sh)"
-          test_binary="${RUNNER_TEMP}/singbox-privileged.test"
-          timeout --signal=TERM --kill-after=30s 20m \
+          cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
+          artifact_dir="${RUNNER_TEMP}/singbox-privileged-artifact"
+          mkdir -p "${artifact_dir}"
+          timeout --signal=TERM --kill-after=30s 5m \
             go -C ../gust-x test -c -tags "${tags}" \
-            -o "${test_binary}" ./backend/singbox
+            -o "${artifact_dir}/singbox-privileged.test" ./backend/singbox
+          cp "${cronet_dir}/libcronet.so" "${artifact_dir}/libcronet.so"
+
+      - name: Upload privileged Linux test artifact
+        if: ${{ matrix.suite == 'embedded' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: singbox-privileged-linux-amd64
+          path: ${{ runner.temp }}/singbox-privileged-artifact
+          retention-days: 1
+
+  singbox-privileged:
+    name: singbox privileged runtime / linux-amd64
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download test artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: singbox-privileged-linux-amd64
+          path: ${{ runner.temp }}/singbox-privileged-artifact
 
       - name: Run privileged Linux inbound matrix
-        if: ${{ matrix.suite == 'privileged' }}
         shell: bash
         run: |
           set -euo pipefail
-          cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
-          test_binary="${RUNNER_TEMP}/singbox-privileged.test"
+          artifact_dir="${RUNNER_TEMP}/singbox-privileged-artifact"
+          test_binary="${artifact_dir}/singbox-privileged.test"
+          chmod +x "${test_binary}"
           sudo env \
-            LD_LIBRARY_PATH="${cronet_dir}" \
+            LD_LIBRARY_PATH="${artifact_dir}" \
             GUST_SINGBOX_PRIVILEGED_TESTS=1 \
             unshare --pid --fork --mount-proc --kill-child=KILL \
             timeout --signal=TERM --kill-after=30s 5m "${test_binary}" \
