@@ -22,11 +22,13 @@ permissions:
 
 jobs:
   test:
+    name: test / ${{ matrix.suite }}
     runs-on: ubuntu-latest
-    # A cold pure-Go Naive build compiles the bundled Cronet surface and can
-    # take more than 15 minutes on a fresh hosted runner. Keep every release
-    # gate enabled and give the complete matrix enough wall-clock budget.
-    timeout-minutes: 60
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [core, flavors, embedded, privileged]
     env:
       GO_VERSION: 1.26.5
     steps:
@@ -74,6 +76,7 @@ jobs:
         run: bash .github/scripts/check_branch_policy.sh "${TARGET_BRANCH}" ../gust-x
 
       - name: Validate PowerShell build script syntax
+        if: ${{ matrix.suite == 'core' }}
         shell: pwsh
         run: |
           $tokens = $null
@@ -89,9 +92,11 @@ jobs:
           }
 
       - name: Test release helper scripts
+        if: ${{ matrix.suite == 'core' }}
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
       - name: Verify fixed-runner sing-box performance baseline
+        if: ${{ matrix.suite == 'core' }}
         run: python3 .github/scripts/check_singbox_performance.py
 
       - name: Download gust-x modules
@@ -114,6 +119,7 @@ jobs:
           fi
 
       - name: Verify Linux purego Naive runtime
+        if: ${{ matrix.suite == 'flavors' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -142,9 +148,11 @@ jobs:
           wait "${smoke_pid}" 2>/dev/null || true
 
       - name: Verify standard and singbox flavors
+        if: ${{ matrix.suite == 'flavors' }}
         run: bash .github/scripts/verify_singbox_flavors.sh
 
       - name: Test gust-x
+        if: ${{ matrix.suite == 'core' }}
         working-directory: ../gust-x
         run: >-
           timeout --signal=TERM --kill-after=30s 15m
@@ -152,6 +160,7 @@ jobs:
           ./...
 
       - name: Test gust unit packages
+        if: ${{ matrix.suite == 'core' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -160,6 +169,7 @@ jobs:
             go test -timeout 12m "${packages[@]}"
 
       - name: Test embedded sing-box backend
+        if: ${{ matrix.suite == 'embedded' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -181,6 +191,7 @@ jobs:
             -run "${protocol_tests}" ./backend/singbox)
 
       - name: Test privileged Linux sing-box inbounds
+        if: ${{ matrix.suite == 'privileged' }}
         shell: bash
         run: |
           set -euo pipefail
