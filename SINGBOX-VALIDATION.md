@@ -4,7 +4,7 @@
   and six-host fleet validation pass; GitHub workflow certification is pending.
 - Validation date: 2026-08-07
 - Gust branch: `singbox-backend`
-- gust-x revision: `75cab6cce7d0a2f885e652633742aedfc03fedb5`
+- gust-x revision: `713e879c97dba1ea0976e63b709030954ccacd74`
 - Pinned sing-box: `v1.13.16`
 - Certification toolchain: `go1.26.5`
 
@@ -181,21 +181,21 @@ sing-box v1.13.16, full feature tags, CGO disabled, loopback MTU 65536.
 
 | Comparison | Official median | Gust median | Ratio | Gate | Result |
 |---|---:|---:|---:|---:|---:|
-| TCP throughput, 64 KiB echo | 701.04 MB/s | 700.44 MB/s | 99.91% | >=90% | PASS |
-| UDP PPS, 1200-byte echo | 10,864 PPS | 10,927 PPS | 100.58% | >=90% | PASS |
-| TCP round-trip p95 / p99 | 105.730 / 114.568 us | 105.858 / 115.379 us | 100.12% / 100.71% | <=110% | PASS |
-| UDP round-trip p95 / p99 | 105.480 / 116.982 us | 105.210 / 117.272 us | 99.74% / 100.25% | <=110% | PASS |
-| Internal egress UDP write | n/a | 151.0 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
-| Fixed-port reload pause | n/a | 3.75 ms median, 3.77 ms p95 | n/a | p95 <=5 ms | PASS |
+| TCP throughput, 64 KiB echo | 695.00 MB/s | 695.09 MB/s | 100.01% | >=90% | PASS |
+| UDP PPS, 1200-byte echo | 10,873 PPS | 10,849 PPS | 99.78% | >=90% | PASS |
+| TCP round-trip p95 / p99 | 106.236 / 116.068 us | 106.765 / 116.983 us | 100.50% / 100.79% | <=110% | PASS |
+| UDP round-trip p95 / p99 | 106.675 / 119.219 us | 106.076 / 118.899 us | 99.44% / 99.73% | <=110% | PASS |
+| Internal egress UDP write | n/a | 151.4 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
+| Fixed-port reload pause | n/a | 3.76 ms median, 3.79 ms p95 | n/a | p95 <=5 ms | PASS |
 
 Resource medians for the one-Box-per-`-L` baseline:
 
 | Boxes | Startup | Live heap delta | Goroutine delta | FD delta | Median max RSS |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 5.04 ms | 305,304 B | 8 | 4 | 19,546,112 B |
-| 2 | 8.07 ms | 646,096 B | 16 | 8 | 20,127,744 B |
-| 10 | 32.65 ms | 3,042,608 B | 80 | 40 | 23,592,960 B |
-| 50 | 217.14 ms | 15,204,064 B | 400 | 200 | 42,160,128 B |
+| 1 | 5.04 ms | 305,416 B | 8 | 4 | 19,546,112 B |
+| 2 | 8.11 ms | 646,128 B | 16 | 8 | 20,262,912 B |
+| 10 | 32.70 ms | 3,041,936 B | 80 | 40 | 23,941,120 B |
+| 50 | 220.15 ms | 15,203,392 B | 400 | 200 | 41,582,592 B |
 
 Every one of the 20 fresh-process resource samples returned goroutine and FD
 counts exactly to its pre-start baseline after Close. These numbers prove the
