@@ -3,9 +3,9 @@
 - Status: PASS — implementation, local matrix, fixed-runner performance,
   six-host fleet validation, required GitHub workflows and the six-platform
   build-only release rehearsal pass.
-- Validation date: 2026-08-07
+- Validation date: 2026-08-08
 - Gust branch: `singbox-backend`
-- Certified Gust revision: `05f75b85191ef3fab52a55a3eeb97cf036e72d42`
+- Certified Gust revision: `424b092bb8a31277e4ea94f4ee8970e5dbd2bd84`
 - gust-x revision: `713e879c97dba1ea0976e63b709030954ccacd74`
 - Pinned sing-box: `v1.13.16`
 - Certification toolchain: `go1.26.5`
@@ -165,6 +165,8 @@ domain destination, remote DNS, selector, detour and endpoint coverage.
 | Runtime-pool singleflight/reference ownership | PASS |
 | Gust-owned lifecycle/config surface under race detector | PASS |
 | URI lexer fuzzing | PASS |
+| CI test, cross-build and native-smoke matrices schedule independently | PASS |
+| Privileged runner resources and native smoke children have bounded cleanup | PASS |
 
 Reality/Vision data paths run normally but are excluded from Go's checkptr race
 mode because pinned upstream `sing-vmess` Vision code faults under that
@@ -264,9 +266,9 @@ python3 .github/scripts/check_singbox_performance.py
 
 ## Certification evidence
 
-- Required Go CI: [run 31180683865](https://github.com/lovitus/gust/actions/runs/31180683865)
-- Pinned/latest compatibility: [run 31181011275](https://github.com/lovitus/gust/actions/runs/31181011275)
-- Six-platform build-only release rehearsal: [run 31180723307](https://github.com/lovitus/gust/actions/runs/31180723307)
+- Required Go CI: [run 31196849104](https://github.com/lovitus/gust/actions/runs/31196849104)
+- Pinned/latest compatibility: [run 31195877341](https://github.com/lovitus/gust/actions/runs/31195877341)
+- Six-platform build-only release rehearsal: [run 31197466032](https://github.com/lovitus/gust/actions/runs/31197466032)
 
 The acceptance matrix is PASS. Publishing still requires a clean pushed source
 branch and an `singbox-v*` tag contained in `origin/singbox-backend`; the tag
