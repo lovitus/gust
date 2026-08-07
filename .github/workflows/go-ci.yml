@@ -23,7 +23,10 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A cold pure-Go Naive build compiles the bundled Cronet surface and can
+    # take more than 15 minutes on a fresh hosted runner. Keep every release
+    # gate enabled and give the complete matrix enough wall-clock budget.
+    timeout-minutes: 60
     env:
       GO_VERSION: 1.26.5
     steps:
