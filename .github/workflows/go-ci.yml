@@ -98,23 +98,8 @@ jobs:
         working-directory: ../gust-x
         run: go mod download
 
-      - name: Test gust-x
-        working-directory: ../gust-x
-        run: >-
-          timeout --signal=TERM --kill-after=30s 15m
-          go test -timeout 12m
-          ./...
-
       - name: Download gust modules
         run: go mod download
-
-      - name: Test gust unit packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t packages < <(go list ./... | grep -v '/tests/e2e$')
-          timeout --signal=TERM --kill-after=30s 15m \
-            go test -timeout 12m "${packages[@]}"
 
       - name: Verify pinned sing-box version
         shell: bash
@@ -127,6 +112,44 @@ jobs:
             echo "sing-box version mismatch: go.mod=${module_version}, source=${source_version}" >&2
             exit 1
           fi
+
+      - name: Verify Linux purego Naive runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          tags="$(bash .github/scripts/singbox-tags.sh)"
+          binary="${RUNNER_TEMP}/gust-with-singbox-purego"
+          cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -trimpath -tags "${tags}" -o "${binary}" ./cmd/gost
+
+          set +e
+          LD_LIBRARY_PATH="${cronet_dir}" timeout --signal=TERM --kill-after=5s 2s \
+            "${binary}" -L 'http://127.0.0.1:18993' \
+            -F 'naive+singbox://user:password@127.0.0.1:443?tls.enabled=true' \
+            >"${RUNNER_TEMP}/naive-smoke.log" 2>&1
+          status=$?
+          set -e
+          if [[ "${status}" -ne 124 ]]; then
+            cat "${RUNNER_TEMP}/naive-smoke.log" >&2
+            echo "Naive runtime exited early with status ${status}" >&2
+            exit 1
+          fi
+
+      - name: Test gust-x
+        working-directory: ../gust-x
+        run: >-
+          timeout --signal=TERM --kill-after=30s 15m
+          go test -timeout 12m
+          ./...
+
+      - name: Test gust unit packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t packages < <(go list ./... | grep -v '/tests/e2e$')
+          timeout --signal=TERM --kill-after=30s 15m \
+            go test -timeout 12m "${packages[@]}"
 
       - name: Test embedded sing-box backend
         shell: bash
@@ -165,29 +188,6 @@ jobs:
             -test.v \
             -test.timeout=3m \
             -test.run='^TestEmbeddedLinuxPrivilegedInboundMatrix$'
-
-      - name: Verify Linux purego Naive runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          tags="$(bash .github/scripts/singbox-tags.sh)"
-          binary="${RUNNER_TEMP}/gust-with-singbox-purego"
-          cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-            go build -trimpath -tags "${tags}" -o "${binary}" ./cmd/gost
-
-          set +e
-          LD_LIBRARY_PATH="${cronet_dir}" timeout --signal=TERM --kill-after=5s 2s \
-            "${binary}" -L 'http://127.0.0.1:18993' \
-            -F 'naive+singbox://user:password@127.0.0.1:443?tls.enabled=true' \
-            >"${RUNNER_TEMP}/naive-smoke.log" 2>&1
-          status=$?
-          set -e
-          if [[ "${status}" -ne 124 ]]; then
-            cat "${RUNNER_TEMP}/naive-smoke.log" >&2
-            echo "Naive runtime exited early with status ${status}" >&2
-            exit 1
-          fi
 
       - name: Verify standard and singbox flavors
         shell: bash
