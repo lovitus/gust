@@ -63,6 +63,7 @@ cp "${singbox_dir}/LICENSE" "${stage}/sing-box-LICENSE"
 cp SINGBOX-NOTICE.md "${stage}/SINGBOX-NOTICE.md"
 cp cmd/gost/SINGBOX_MANUAL.md "${stage}/SINGBOX-MANUAL.md"
 cp SINGBOX-VALIDATION.md "${stage}/SINGBOX-VALIDATION.md"
+cp SINGBOX-PERFORMANCE-BASELINE.json "${stage}/SINGBOX-PERFORMANCE-BASELINE.json"
 cp licenses/GPL-3.0.txt "${stage}/GPL-3.0.txt"
 gpl_digest="$(openssl dgst -sha256 "${stage}/GPL-3.0.txt" | awk '{print $NF}')"
 if [[ "${gpl_digest}" != 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986 ]]; then
@@ -84,7 +85,7 @@ case "${target_goos}" in
   darwin)
     cronet_module=""
     cronet_name=""
-    unavailable_features+=(naive ccm)
+    unavailable_features+=(naive_outbound ccm)
     ;;
 esac
 if [[ -n "${cronet_module}" ]]; then

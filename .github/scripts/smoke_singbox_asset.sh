@@ -26,19 +26,30 @@ grep -F '## Gust JSON configuration' "${asset_root}/smoke-singbox-manual.txt"
 grep -F '## Mixed CLI and JSON configuration' "${asset_root}/smoke-singbox-manual.txt"
 test -f "${asset_root}/SINGBOX-MANUAL.md"
 test -f "${asset_root}/SINGBOX-VALIDATION.md"
+test -f "${asset_root}/SINGBOX-PERFORMANCE-BASELINE.json"
+python3 -m json.tool "${asset_root}/SINGBOX-PERFORMANCE-BASELINE.json" >/dev/null
 
 echo_log="${RUNNER_TEMP:-/tmp}/singbox-echo.log"
 gust_log="${RUNNER_TEMP:-/tmp}/singbox-direct.log"
 python3 tests/e2e/scripts/tcp_echo.py >"${echo_log}" 2>&1 &
 echo_pid=$!
+udp_log="${RUNNER_TEMP:-/tmp}/singbox-udp-echo.log"
+dns_log="${RUNNER_TEMP:-/tmp}/singbox-dns.log"
+python3 tests/e2e/scripts/udp_echo.py >"${udp_log}" 2>&1 &
+udp_pid=$!
+python3 tests/e2e/scripts/dns_responder.py --port 15353 >"${dns_log}" 2>&1 &
+dns_pid=$!
 (
   cd "${asset_root}"
-  "${binary}" -L 'http://127.0.0.1:18888' -F 'direct+singbox://' >"${gust_log}" 2>&1
+  "${binary}" \
+    -L 'http://127.0.0.1:18888' \
+    -L 'socks5+singbox://user:password@127.0.0.1:18889' \
+    -F 'direct+singbox://' >"${gust_log}" 2>&1
 ) &
 gust_pid=$!
 cleanup() {
-  kill "${gust_pid}" "${echo_pid}" 2>/dev/null || true
-  wait "${gust_pid}" "${echo_pid}" 2>/dev/null || true
+  kill "${gust_pid}" "${echo_pid}" "${udp_pid}" "${dns_pid}" 2>/dev/null || true
+  wait "${gust_pid}" "${echo_pid}" "${udp_pid}" "${dns_pid}" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -56,8 +67,19 @@ if [[ "${passed}" != true ]]; then
   cat "${gust_log}" >&2
   exit 1
 fi
+curl --fail --silent --show-error --max-time 2 \
+  --proxy 'socks5h://user:password@127.0.0.1:18889' \
+  http://127.0.0.1:5678 | grep -Fx 'hello-gost'
+python3 tests/e2e/scripts/socks5_udp_client.py \
+  --proxy 127.0.0.1:18889 --username user --password password \
+  --target 127.0.0.1:5679 --payload hello-gost-udp \
+  | grep -Fx 'hello-gost-udp'
+python3 tests/e2e/scripts/socks5_udp_client.py \
+  --proxy 127.0.0.1:18889 --username user --password password \
+  --target 127.0.0.1:15353 --dns-name test.example.com \
+  | grep -F 'DNS PASS:'
 
-if python3 -c 'import json,sys; sys.exit("naive" in json.load(open(sys.argv[1], encoding="utf-8"))["unavailableFeatures"])' \
+if python3 -c 'import json,sys; sys.exit("naive_outbound" in json.load(open(sys.argv[1], encoding="utf-8"))["unavailableFeatures"])' \
   "${asset_root}/feature-manifest.json"; then
   naive_log="${RUNNER_TEMP:-/tmp}/singbox-naive.log"
   (

@@ -88,6 +88,9 @@ jobs:
       - name: Test release helper scripts
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
+      - name: Verify fixed-runner sing-box performance baseline
+        run: python3 .github/scripts/check_singbox_performance.py
+
       - name: Download gust-x modules
         working-directory: ../gust-x
         run: go mod download
@@ -128,7 +131,7 @@ jobs:
           set -euo pipefail
           tags="$(bash .github/scripts/singbox-tags.sh)"
           cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
-          protocol_tests='^(TestNativeProtocolTCPDataPath|TestNativeHysteria2TCPDataPath|TestNativeTUICTCPDataPath|TestNativeSSHTCPDataPath|TestNativeVLESSRealityTCPDataPath|TestNativeNaiveTCPDataPath)$'
+          protocol_tests='^(TestNativeProtocolTCPDataPath|TestNativeHysteria2TCPDataPath|TestNativeTUICTCPDataPath|TestNativeSSHTCPDataPath|TestNativeVLESSRealityTCPDataPath|TestNativeNaiveTCPDataPath|TestEmbeddedInboundTCPProtocolMatrix|TestEmbeddedNaiveInboundUsesGOSTRouter|TestEmbeddedInboundQUICProtocolMatrix|TestEmbeddedDirectInboundUsesGOSTRouter|TestEmbeddedVLESSRealityInboundUsesGOSTRouter|TestEmbeddedShadowTLSDetourActivationUsesGOSTRouter)$'
           (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -p 1 -race -tags "${tags}" \
             -skip "${protocol_tests}" \
             ./backend/singbox \
@@ -142,6 +145,23 @@ jobs:
           # integration under -race, and run real protocol data paths normally.
           (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -p 1 -tags "${tags}" \
             -run "${protocol_tests}" ./backend/singbox)
+
+      - name: Test privileged Linux sing-box inbounds
+        shell: bash
+        run: |
+          set -euo pipefail
+          tags="$(bash .github/scripts/singbox-tags.sh)"
+          cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
+          test_binary="${RUNNER_TEMP}/singbox-privileged.test"
+          (cd ../gust-x && go test -c -tags "${tags}" \
+            -o "${test_binary}" ./backend/singbox)
+          sudo env \
+            LD_LIBRARY_PATH="${cronet_dir}" \
+            GUST_SINGBOX_PRIVILEGED_TESTS=1 \
+            "${test_binary}" \
+            -test.v \
+            -test.timeout=3m \
+            -test.run='^TestEmbeddedLinuxPrivilegedInboundMatrix$'
 
       - name: Verify Linux purego Naive runtime
         shell: bash
@@ -200,7 +220,12 @@ jobs:
           echo_pid=$!
           (
             cd "${RUNNER_TEMP}"
-            "${singbox_bin}" -L 'http://127.0.0.1:18888' -F 'direct+singbox://' >"${RUNNER_TEMP}/singbox-e2e.log" 2>&1
+            "${singbox_bin}" \
+              -L 'http://127.0.0.1:18888' \
+              -L 'socks5+singbox://user:password@127.0.0.1:18889' \
+              -L 'http+singbox://user:password@127.0.0.1:18890' \
+              -L 'singbox://?json={"type":"mixed","listen":"127.0.0.1","listen_port":18891}' \
+              -F 'direct+singbox://' >"${RUNNER_TEMP}/singbox-e2e.log" 2>&1
           ) &
           gust_pid=$!
           # shellcheck disable=SC2329 # invoked by trap
@@ -210,16 +235,29 @@ jobs:
           }
           trap cleanup EXIT
 
+          ready=false
           for _ in {1..30}; do
             if curl --fail --silent --show-error --max-time 2 \
               --proxy http://127.0.0.1:18888 http://127.0.0.1:5678 \
               | grep -Fx 'hello-gost'; then
-              exit 0
+              ready=true
+              break
             fi
             sleep 0.2
           done
-          cat "${RUNNER_TEMP}/singbox-e2e.log" >&2
-          exit 1
+          if [[ "${ready}" != true ]]; then
+            cat "${RUNNER_TEMP}/singbox-e2e.log" >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 2 \
+            --proxy 'socks5h://user:password@127.0.0.1:18889' \
+            http://127.0.0.1:5678 | grep -Fx 'hello-gost'
+          curl --fail --silent --show-error --max-time 2 \
+            --proxy 'http://user:password@127.0.0.1:18890' \
+            http://127.0.0.1:5678 | grep -Fx 'hello-gost'
+          curl --fail --silent --show-error --max-time 2 \
+            --proxy 'socks5h://127.0.0.1:18891' \
+            http://127.0.0.1:5678 | grep -Fx 'hello-gost'
 
   singbox-cross-build:
     name: singbox cross-build / ${{ matrix.goos }}-${{ matrix.goarch }}

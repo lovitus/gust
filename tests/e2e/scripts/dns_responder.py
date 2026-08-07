@@ -8,6 +8,7 @@ Listens on UDP port 5353 and responds with static records:
 
 All other queries receive NXDOMAIN.
 """
+import argparse
 import socketserver
 import struct
 import socket
@@ -84,5 +85,8 @@ class DNSResponder(socketserver.DatagramRequestHandler):
 
 
 if __name__ == "__main__":
-    with socketserver.UDPServer(("0.0.0.0", 5353), DNSResponder) as srv:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=5353)
+    args = parser.parse_args()
+    with socketserver.UDPServer(("0.0.0.0", args.port), DNSResponder) as srv:
         srv.serve_forever()

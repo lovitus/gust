@@ -37,6 +37,7 @@ case "${target_branch}" in
       .github/singbox-gust-x.ref \
       .github/workflows/singbox-compat.yml \
       SINGBOX-NOTICE.md \
+      SINGBOX-PERFORMANCE-BASELINE.json \
       SINGBOX-VALIDATION.md \
       cmd/gost/SINGBOX_MANUAL.md \
       licenses/GPL-3.0.txt
@@ -55,6 +56,7 @@ case "${target_branch}" in
       .github/singbox-gust-x.ref \
       .github/workflows/singbox-compat.yml \
       SINGBOX-NOTICE.md \
+      SINGBOX-PERFORMANCE-BASELINE.json \
       SINGBOX-VALIDATION.md \
       cmd/gost/SINGBOX_MANUAL.md
     git fetch --no-tags --prune origin \

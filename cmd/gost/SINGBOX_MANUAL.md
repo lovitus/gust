@@ -23,19 +23,20 @@ embedded runtime. Download an asset whose name starts with
 
 The sing-box release assets contain a `feature-manifest.json`. On Linux and
 Windows, keep the bundled `libcronet.so` or `libcronet.dll` beside the binary
-when using Naive. The official Darwin build does not include Naive or CCM.
+when using a Naive **outbound**. Darwin does not include the Cronet-based Naive
+outbound or CCM; a Naive inbound is still available because its server path
+does not use Cronet.
 
 ## 2. Configuration model
 
-Gust uses two separate layers:
+Gust uses the same adapter syntax in both directions:
 
-- `-L` creates a local GOST listener/service, such as an HTTP or SOCKS proxy.
-- `-F` adds an outbound chain node. A URI whose scheme is `singbox` or ends in
-  `+singbox` is handled by the embedded sing-box backend.
-
-The embedded integration is an outbound/endpoint backend. It deliberately
-does not turn sing-box `inbounds` into `-L` listeners. A full sing-box config
-passed to `-F` must therefore contain no `inbounds`.
+- `-L '<protocol>+singbox://...'` creates a native sing-box inbound and hands
+  its unmatched traffic to the ordinary GOST chain.
+- `-F '<protocol>+singbox://...'` adds a native sing-box outbound/endpoint to
+  that chain.
+- A plain `-L` or `-F` remains the standard GOST implementation. Adding
+  `+singbox` is always explicit and never changes the other flavor silently.
 
 The usual local HTTP proxy routed through a sing-box outbound is:
 
@@ -53,7 +54,7 @@ the same examples.
 
 The integration embeds sing-box as a Go library in the Gust process. It does
 not execute a `sing-box` child process and does not create a hidden localhost
-SOCKS/HTTP bridge. The normal data path is:
+SOCKS/HTTP bridge. The two normal data paths are:
 
 ```text
 application
@@ -61,27 +62,29 @@ application
   -> preceding Gust -F nodes, if any
   -> selected embedded sing-box outbound or endpoint
   -> destination
+
+native client
+  -> embedded sing-box -L inbound
+  -> internal __gust_egress adapter
+  -> Gust -F chain, if any
+  -> destination
 ```
 
-Gust owns the listener, authentication, service routing, chain selection and
-the final bidirectional copy. sing-box owns the selected outbound protocol,
-including its encryption, TLS/Reality/QUIC transport, multiplexing, DNS
-dependencies and explicit detours. Gust calls that selected outbound directly;
-the request is not fed through a sing-box inbound. Consequently, sing-box
-`route.rules` do not select the initial outbound for a Gust request. Select the
-required tag with `outbound=`/`endpoint=` or perform initial policy selection
-in Gust. The complete configuration is still available to dependencies used
-by the selected node.
+For `-F`, Gust owns the listener, service routing and chain selection while
+sing-box owns the selected outbound protocol and its native dependencies. For
+`-L`, sing-box owns the listening socket and protocol handshake while Gust owns
+the final chain. Explicit native `route.rules` are preserved and take priority;
+unmatched/default traffic enters `__gust_egress`. A full `-L` config whose
+`route.final` names a user outbound is rejected instead of being silently
+overwritten. Convert that choice to an explicit rule when it must remain native.
 
-At configuration time, the CLI or Gust connector metadata is parsed into a
-sing-box node plus an optional complete dependency graph. A singbox flavor
-validates both with the pinned native sing-box option types. Before a runtime
-is acquired, the typed options are serialized into canonical JSON. The runtime
-pool key covers that canonical JSON, the source kind, embedded sing-box
-version, compiled feature set and the preceding-route scope. Equal keys share
-one `box.Box`; `singleflight` prevents concurrent duplicate construction.
-Handles and active TCP/UDP connections hold reference-counted leases, so a
-reload can start a replacement before the old runtime is retired.
+At configuration time, `-L` and `-F` share the URI lexer, readable JSON/file
+loader, merge rules and typed path assignments. Direction-specific native
+schemas prevent an outbound-only field from being accepted on an inbound (and
+vice versa). Outbound Boxes use the canonical runtime pool and reference-counted
+leases. Each inbound service owns one Box because it owns sockets and system
+resources; reload starts its replacement first and closes the retired service
+after handoff.
 
 ## CLI configuration
 
@@ -90,13 +93,62 @@ reload can start a replacement before the old runtime is retired.
 ```text
 <protocol>+singbox://[userinfo@][server][:port][?options][#node-name]
 singbox://?json=<node-object-or-file>
-singbox://?config=<full-config-file>&outbound=<tag>
-singbox://?config=<full-config-file>&endpoint=<tag>
+singbox://?config=<full-config-file>&inbound=<tag>      # with -L
+singbox://?config=<full-config-file>&outbound=<tag>     # with -F
+singbox://?config=<full-config-file>&endpoint=<tag>     # with -F
 ```
 
 Stable aliases include `ss` for `shadowsocks`, `socks4`, `socks4a`, `socks5`,
 `hy2` for `hysteria2`, and `wg` for the WireGuard endpoint. Protocol and field
-names follow the sing-box v1.13.16 outbound/endpoint schema.
+names follow the sing-box v1.13.16 schema selected by direction.
+
+### Native inbound (`-L`)
+
+The simplest inbound form is intentionally identical to `-F`: the URI
+authority supplies the listening address, user information supplies the
+protocol credentials, and query paths supply native options.
+
+```bash
+# SOCKS5 server; unmatched TCP and UDP use the following four-hop chain
+gost \
+  -L 'socks5+singbox://user:password@0.0.0.0:1080' \
+  -F 'socks5://first.example.com:1080' \
+  -F 'ss+singbox://METHOD:PASSWORD@second.example.com:8388' \
+  -F 'ssh://user:password@third.example.com:22' \
+  -F 'hy2+singbox://password@fourth.example.com:443?tls.enabled=true&tls.server_name=fourth.example.com'
+
+# Shadowsocks server
+gost -L 'ss+singbox://chacha20-ietf-poly1305:SECRET@0.0.0.0:8388'
+
+# VLESS Reality server (use its native private key and handshake target)
+gost -L 'vless+singbox://UUID@0.0.0.0:443?tls.enabled=true&tls.server_name=example.com&tls.reality.enabled=true&tls.reality.private_key=PRIVATE_KEY&tls.reality.short_id=SHORT_ID&tls.reality.handshake.server=example.com&tls.reality.handshake.server_port:=443'
+
+# TUN, REDIRECT and TProxy are Linux/system-resource listeners
+gost -L 'tun+singbox://?interface_name=gust0&address:=["10.77.0.1/30"]&stack=gvisor'
+gost -L 'redirect+singbox://0.0.0.0:12345'
+gost -L 'tproxy+singbox://0.0.0.0:12345?network:=["tcp","udp"]'
+```
+
+The same form applies to `http`, `mixed`, `vmess`, `vless`, `trojan`,
+`anytls`, `hysteria`, `hysteria2`, `tuic`, `naive` and `direct`.
+ShadowTLS is normally selected from a full config together with its explicit
+detour inbound. TLS, Reality, QUIC, transport, multiplex and (where supported
+by that direction) UoT fields remain native sing-box fields; use a JSON object
+when their CLI form would be difficult to review.
+
+Each repeated `-L` creates an independent service-owned Box. For example,
+three `-L` arguments followed by four `-F` arguments mean three independent
+listeners, each referring to the same generated `chain-0` containing those
+four nodes. The chain configuration is reused; the listener Boxes are not
+automatically combined. This is the correctness and lifecycle-isolation
+baseline, not an accidental duplicate runtime.
+
+The native inbound must use a fixed non-zero port. TUN has a stable synthetic
+address. Unknown resource-owning types, implicit API/service listeners and
+resource behavior that cannot be certified are rejected fail-closed before
+startup.
+
+### Native outbound (`-F`)
 
 Common examples:
 
@@ -188,8 +240,10 @@ port is not a Reality test; verify traffic through the local `-L` proxy.
 
 ## Node JSON configuration
 
-`json=` accepts either an inline sing-box outbound/endpoint object or a file
-path. `json64=` accepts an unpadded URL-safe base64 object.
+`json=` accepts either an inline native object or a JSON file path. Its
+direction comes from `-L` or `-F`; users do not need a second syntax for
+inbounds. Readable JSON is recommended. Base64 source controls remain only for
+backward compatibility and are deliberately not used in this manual.
 
 `vless-node.json`:
 
@@ -217,6 +271,60 @@ gost -L 'socks5://127.0.0.1:1080' \
   -F 'singbox://?json=./vless-node.json#edge'
 ```
 
+An inbound object works the same way. For example, a Shadowsocks server with
+native inbound multiplexing can remain readable:
+
+```json
+{
+  "type": "shadowsocks",
+  "listen": "0.0.0.0",
+  "listen_port": 8388,
+  "method": "2022-blake3-aes-128-gcm",
+  "password": "REPLACE_WITH_KEY",
+  "multiplex": {
+    "enabled": true
+  }
+}
+```
+
+```bash
+gost -L 'singbox://?json=./ss-inbound.json' -F 'direct://'
+```
+
+Direction still matters. In sing-box v1.13.16, Shadowsocks `plugin`,
+`plugin_opts` and `udp_over_tcp` are outbound fields, while inbound
+`multiplex` is a different server schema. A client node containing plugin,
+UoT v2 and multiplex settings should therefore be used unchanged with `-F`:
+
+```json
+{
+  "type": "shadowsocks",
+  "server": "proxy.example.com",
+  "server_port": 8388,
+  "method": "2022-blake3-aes-128-gcm",
+  "password": "REPLACE_WITH_KEY",
+  "plugin": "obfs-local",
+  "plugin_opts": "obfs=http;obfs-host=cdn.example.com",
+  "udp_over_tcp": {"enabled": true, "version": 2},
+  "multiplex": {"enabled": true, "protocol": "h2mux"}
+}
+```
+
+```bash
+gost -L 'socks5://127.0.0.1:1080?udp=true' \
+  -F 'singbox://?json=./ss-outbound.json'
+```
+
+If those outbound-only keys are supplied to `-L`, native schema validation
+reports the exact invalid path; Gust does not guess, drop or reinterpret them.
+
+Inline JSON is portable and readable when shell quoting remains manageable:
+
+```bash
+gost -L 'singbox://?json={"type":"socks","listen":"127.0.0.1","listen_port":1080}' \
+  -F 'direct+singbox://'
+```
+
 An inline object is also valid:
 
 ```bash
@@ -226,12 +334,18 @@ gost -L 'http://127.0.0.1:8080' \
 
 ## Complete sing-box configuration
 
-Use a complete config when the selected outbound depends on DNS,
-`selector`/`urltest`, `detour`, services, endpoints or other tagged objects:
+Use a complete config when the selected object depends on DNS,
+`selector`/`urltest`, `detour`, services, endpoints or other tagged objects.
+The selector name follows direction:
 
 ```bash
 gost -L 'socks5://127.0.0.1:1080' \
   -F 'singbox://?config=/etc/sing-box/config.json&outbound=proxy'
+```
+
+```bash
+gost -L 'singbox://?config=/etc/sing-box/server.json&inbound=entry' \
+  -F 'direct://'
 ```
 
 For a WireGuard or Tailscale endpoint, select it with `endpoint=`:
@@ -241,14 +355,69 @@ gost -L 'socks5://127.0.0.1:1080' \
   -F 'singbox://?config=/etc/sing-box/config.json&endpoint=tailnet'
 ```
 
-`config64=` is the base64url equivalent. Only one of `outbound=` and
-`endpoint=` may be present. The chosen node's complete dependency graph is
-kept. Configs containing `inbounds` are rejected.
+With `-F`, only one of `outbound=` and `endpoint=` may be present; native
+inbounds are not activated. With `-L`, `inbound=` is required. Only that
+inbound is activated unless it depends on another inbound through the native
+top-level `detour` / `ListenOptions.detour` field.
+
+Such a dependency must be explicit and exact:
+
+```bash
+gost -L 'singbox://?config=./shadowtls-server.json&inbound=entry&activate_inbounds:=["entry","inner"]'
+```
+
+`activate_inbounds` is a Gust adapter control, not a sing-box JSON field. It
+requires exact `:=JSON` array syntax, is removed before native decoding, and
+must equal the selected inbound's complete detour closure. Missing, unrelated,
+duplicate, cyclic or unknown tags fail before startup; Gust never starts every
+inbound in a supplied file by surprise.
 
 ## Gust JSON configuration
 
 Do not confuse a Gust config passed with `-C` with the sing-box node JSON
-passed by `json=`. A complete Gust JSON configuration looks like this:
+passed by `json=`. A native inbound is a top-level Gust service whose
+listener type is `singbox`; the handler's chain is the ordinary GOST chain:
+
+```json
+{
+  "services": [
+    {
+      "name": "native-socks",
+      "addr": "127.0.0.1:1080",
+      "listener": {
+        "type": "singbox",
+        "metadata": {
+          "protocol": "socks",
+          "options": {
+            "users": [{"username": "user", "password": "password"}]
+          }
+        }
+      },
+      "handler": {"type": "auto", "chain": "singbox-chain"}
+    }
+  ],
+  "chains": [{"name": "singbox-chain", "hops": []}]
+}
+```
+
+For a full native server config, listener metadata uses the same controls as
+the CLI:
+
+```json
+{
+  "config": "/etc/sing-box/server.json",
+  "inbound": "entry",
+  "activate_inbounds": ["entry", "inner"]
+}
+```
+
+`addr`, when present, overrides the selected native inbound's `listen` and
+`listen_port`. Put authentication, TLS, admission-like protocol controls and
+other native listener behavior inside the native options. Generic GOST listener
+authentication/TLS, handler metadata, limiters, observers, rewrites and similar
+wrappers are rejected for this service instead of being accepted but bypassed.
+
+An outbound-only complete Gust JSON configuration looks like this:
 
 ```json
 {
@@ -350,8 +519,8 @@ gost -L 'socks5://127.0.0.1:1080' \
 Merge priority is fixed and does not depend on query order:
 
 ```text
-selected node from config/config64
-  < json/json64 node overlay
+selected node from config
+  < json node overlay
   < URI authority and userinfo
   < ordinary query assignments
 ```
@@ -410,6 +579,15 @@ dependencies. Outbound and endpoint leaves without a user detour observe the
 preceding GOST route. Networked DNS transport leaves without a user detour are
 injected in the same way, so DNS used to resolve the proxy server also follows
 the request-scoped GOST prefix. An explicit DNS `detour` is preserved.
+
+For a native `-L`, the direction is reversed at the internal boundary:
+sing-box accepts and decrypts the connection, then `__gust_egress` asks the
+service's stable GOST Router for `tcp` or an unconnected `udp` association.
+That Router holds the chain named by the service handler. TCP is streamed
+directly; UDP keeps each packet's destination address and domain name, so one
+SOCKS association may carry multiple targets. Missing routing context, prefix
+failure or an unknown target fails closed and never falls back to a system
+direct connection.
 
 ## TCP, UDP and DNS usage
 
@@ -496,15 +674,34 @@ packet sizes normally dominate. The integration-specific costs are narrower:
   AEAD encryption, Reality/TLS, QUIC congestion control, padding and protocol
   multiplexing. Gust adds listener/handler and chain work around that data
   path; it does not remove those costs.
+- Native inbound configuration, canonicalization and Box construction happen
+  at service start/reload, never once per connection or packet.
+- One native `-L` owns one Box. More listeners therefore add native Box
+  memory, goroutines, descriptors and startup time linearly. They reuse the
+  same GOST chain objects but intentionally do not share listening Boxes.
+- `__gust_egress` performs no JSON work and does not open a loopback proxy.
+  Its UDP association retains packet boundaries and target addresses; the
+  implementation is required not to allocate a large object for every packet.
 
 Practical advantages are one process, no IPC or hidden listener, full selected
 node dependency graphs, composition with existing Gust nodes, fail-closed
 prefix chaining, remote UDP domain preservation and safe reload leases. The
 main costs and limits are a larger singbox binary and runtime memory footprint,
-the per-connection handle work above, current UDP read allocation, a pinned
-schema/feature set, platform-specific features, no `Bind`, no implicit
-sing-box inbounds and no sing-box inbound-router selection of the initial tag.
-Use the standard flavor when none of the embedded protocols is needed.
+the per-connection handle work above, current outbound UDP read allocation, a
+pinned schema/feature set, platform-specific features, and one Box per native
+listener. Use the standard flavor when none of the embedded protocols is
+needed.
+
+The architecture is designed for a short data path, but that is not itself a
+performance result. Release performance certification compares the same pinned
+official sing-box version on a fixed runner and records raw samples. The target
+gates are at least 90% of official TCP throughput, at least 90% of official UDP
+PPS, explicit p95/p99 latency limits, and resource baselines for 1/2/10/50
+inbound Boxes. The stricter preferred TCP regression budget is 5%; results
+between 5% and 10% require explanation, while worse than 10% fails. Reload
+also checks switch pause and eventual release of old Boxes, connections,
+timers and goroutines. Until those measurements are attached to a release,
+describe the integration as performance-oriented, not proven high performance.
 
 For reproducible local diagnostics, limit the TCP dial iteration count on
 systems with a small ephemeral-port range:
@@ -531,13 +728,25 @@ protocol throughput.
 7. Use `-D` for debug logs. Configuration errors identify field paths but
    intentionally redact passwords, private keys, tokens and complete JSON.
 
-Identical canonical configurations share a runtime. Reload starts the new
-runtime before retiring the old one, and active TCP/UDP leases keep the old
+For native `-L`, also check:
+
+- `listen_port` is fixed and non-zero, and the address is not already in use.
+- Linux TUN/REDIRECT/TProxy privileges, routes and firewall rules exist.
+- A full config has no foreign `route.final`.
+- `activate_inbounds:=[]` exactly matches the selected inbound's native
+  detour closure.
+- An application payload reaches the expected final target through the GOST
+  chain. A listening port alone proves only startup.
+
+Identical canonical outbound configurations share a runtime. Native inbound
+Boxes remain service-owned. Reload starts the new runtime/service before
+retiring the old one, and active outbound TCP/UDP leases keep an old pooled
 runtime alive until the connection closes.
 
 The validated schema is pinned to sing-box v1.13.16. Fields introduced by a
-newer sing-box release are not automatically accepted. `Bind` and implicit
-sing-box inbound startup are not part of this outbound integration.
+newer sing-box release are not automatically accepted. Native `-L` startup
+is explicit: a full config activates only the selected inbound and its exact
+declared dependency closure.
 
 The repository's detailed acceptance evidence is in
 `SINGBOX-VALIDATION.md`. Release archives include this manual, the validation

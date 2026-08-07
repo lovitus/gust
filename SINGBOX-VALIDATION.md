@@ -1,218 +1,260 @@
 # Embedded sing-box acceptance record
 
-- Status: PASS
-- Validation date: 2026-08-06
-- Validated Gust implementation revision: `b522126c9e16fb180c736545b1510352ec91dad8`
-- Validated CI workflow revision: `dbf7d291d2c99550d61c25311c9dedd571741525`
-- Validated gust-x revision: `db85df20eb30b59fab523d652b194b8f895c2642`
+- Status: CANDIDATE — implementation, local matrix, fixed-runner performance
+  and six-host fleet validation pass; GitHub workflow certification is pending.
+- Validation date: 2026-08-07
+- Gust branch: `singbox-backend`
+- gust-x revision: `92a3eb030492d75ead312d07ef481a00fdd9ce41`
 - Pinned sing-box: `v1.13.16`
-- Go toolchain: `go1.26.5`
+- Certification toolchain: `go1.26.5`
 
-This is the acceptance record for the embedded sing-box delivery, not a claim
-that every unrelated upstream or historical repository test has no known
-failure. It records the configuration, backend, protocol, packaging and
-platform gates used to approve this feature.
+This record covers the complete embedded direction pair: native sing-box
+inbounds selected by `-L`, native outbounds/endpoints selected by `-F`, and
+their composition through an ordinary GOST chain. A port opening or successful
+parse is never counted as a protocol data-plane pass.
 
-## Automated acceptance runs
-
-- Go CI: <https://github.com/lovitus/gust/actions/runs/31072461492>
-  - Result: PASS, 12 of 12 jobs.
-  - Core tests, standard/singbox flavor separation, embedded backend tests,
-    Linux Naive runtime check, five cross-build jobs and six native platform
-    smoke jobs all completed successfully.
-- Compatibility matrix: <https://github.com/lovitus/gust/actions/runs/31072461526>
-  - Result: PASS for pinned and `latest`; both resolved to sing-box v1.13.16 at
-    validation time, using Go 1.26.5.
-- Release dry-run: <https://github.com/lovitus/gust/actions/runs/31072097266>
-  - Result: PASS, six build jobs and six retained platform artifacts.
-  - The publish job was intentionally skipped because this was a manual
-    build-only validation, so no tag or GitHub Release was created.
-
-## Configuration surface
-
-| Area | Evidence | Result |
-|---|---|---|
-| CLI `protocol+singbox://` parsing | URI lexer/parser, native typed paths, aliases, URL-safe secrets | PASS |
-| Node JSON | inline JSON, file, `json64`, source-size/error handling | PASS |
-| Full sing-box config | outbound/endpoint selection, dependency graph, inbound rejection | PASS |
-| Mixed config | config + JSON + authority + query precedence | PASS |
-| Gust JSON/YAML metadata | nested options and JSON/config references | PASS |
-| Exact JSON assignments | bool, number, object, array and null through `path:=JSON` | PASS |
-| Config rendering | standard and singbox flavors through `-O json/yaml` | PASS |
-| Error redaction | password, private key, token, PSK and raw JSON not echoed | PASS |
-
-The fixed overlay order is: selected full-config node, node JSON overlay, URI
-authority/userinfo, ordinary query assignments. Tests also cover arrays,
-object-array paths, repeated values, percent-encoded commas, type mismatches,
-unknown native fields and transport discriminators.
-
-## Real protocol data paths
-
-Tests create controlled local protocol servers and pass application payloads
-through the embedded client; a successful port open alone is not counted.
-
-| Protocol/transport | TCP | UDP | Notes |
-|---|---:|---:|---|
-| Shadowsocks | PASS | not a protocol-specific gate | `chacha20-ietf-poly1305` data plane |
-| SOCKS4/4a/5 | PASS | PASS | authentication, GOST-prefix UDP and SOCKS5 UDP ASSOCIATE covered |
-| HTTP proxy | PASS | n/a | authenticated upstream |
-| VMess | PASS | not a protocol-specific gate | native TCP and WebSocket |
-| VLESS | PASS | not a protocol-specific gate | native TCP, WebSocket TLS, HTTP/2 TLS and gRPC TLS |
-| VLESS Reality | PASS | n/a | basic and `xtls-rprx-vision` |
-| Trojan | PASS | not a protocol-specific gate | TLS data plane |
-| AnyTLS | PASS | not a protocol-specific gate | TLS data plane |
-| Hysteria2 | PASS | PASS | native QUIC data plane |
-| TUIC | PASS | PASS | native QUIC data plane |
-| SSH | PASS | n/a | authenticated TCP proxy data plane |
-| Naive | PASS | n/a | Linux full client/server data plane using trusted local certificate |
-| WireGuard endpoint | lifecycle PASS | lifecycle PASS | native endpoint validation/start/close |
-| Direct | PASS | PASS | embedded baseline and release smoke |
-
-Reality was tested with a valid X25519 key pair, short ID, SNI and controlled
-TLS handshake target in both basic and Vision modes. Naive was additionally
-rebuilt and exercised on an independent Linux validation client with the
-matching Cronet runtime.
-
-## Chain, DNS and failure semantics
-
-| Behavior | Result |
-|---|---|
-| sing-box node as self-dialing chain transport | PASS |
-| Two embedded sing-box nodes in one GOST chain | PASS |
-| Ordinary GOST prefix followed by sing-box | PASS |
-| TCP and UDP through request-scoped prefix route | PASS |
-| Prefix route failure remains fail-closed | PASS |
-| Full-config selector uses GOST prefix route | PASS |
-| Full-config hosts-based DNS dependency retained | PASS |
-| Remote DNS transport automatically follows the GOST prefix | PASS, real UDP query and route-dial assertion |
-| Unconnected UDP PacketConn used by SOCKS5 UDP ASSOCIATE | PASS, arbitrary `WriteTo` destination |
-| Endpoint prefix injection | PASS |
-| Copying a route preserves runtime ownership | PASS |
-| Probe uses an explicit target for self-dialing node | PASS |
-
-DNS acceptance covers both a full-config `hosts` dependency and a controlled
-networked UDP DNS server. The networked test resolves the proxy hostname,
-carries an application payload through the selected outbound, and asserts that
-both the DNS UDP connection and proxy TCP connection used the preceding GOST
-route. No explicit DNS detour is present in that test.
-Operational DNS checks use an actual query and do not infer UDP/DNS support
-from TCP port 53 or from one external resolver.
-
-## Lifecycle, concurrency and robustness
+## Architecture gates
 
 | Gate | Result |
 |---|---|
-| Native schema round-trip matrix | PASS |
-| Canonical content identity and runtime sharing | PASS |
-| Selected tags share an identical Box | PASS |
-| Different prefix paths isolate stateful runtimes | PASS |
-| Singleflight concurrent creation | PASS |
-| Failed replacement preserves the running runtime | PASS |
-| TCP connection lease outlives configuration handle | PASS |
-| UDP packet lease outlives configuration handle | PASS |
-| Repeated replacement drains the runtime pool | PASS |
-| Dial-time context propagation and post-dial detachment | PASS |
-| Gust-owned lifecycle/config surface under `-race` | PASS |
-| URI lexer fuzzing | PASS, approximately 240,000 executions in 3 seconds |
+| Native inbound is an independent top-level `service.Service` | PASS |
+| Native outbound remains a self-dialing GOST Transport | PASS |
+| No child process, IPC, hidden listener or loopback proxy bridge | PASS |
+| `__gust_egress` connects inbound traffic directly to a GOST Router | PASS |
+| TCP destination and cancellation preserved | PASS |
+| One UDP association retains multiple IP/domain destinations | PASS |
+| Chain or route-scope failure remains fail-closed | PASS |
+| Inbound Box is service-owned; outbound Box remains pooled | PASS |
+| One `-L` per Box correctness baseline | PASS |
+| Multiple `-L` services reuse the same named GOST chain configuration | PASS |
+| Standard binary does not link or start sing-box | PASS |
 
-Runtime-pool handle benchmark, five local runs on Apple M4 with Go 1.26.3:
-approximately 13.3–13.6 microseconds/op, 22,486–22,487 bytes/op and 341
-allocations/op. Benchmarks are diagnostic baselines, not release pass/fail
-thresholds and do not measure an encrypted protocol or network RTT.
+Three native `-L` services followed by one four-node `-F` sequence were
+started as three independent Boxes, and all three passed application payloads
+through the generated `chain-0`. Automatic inbound grouping is not required
+for correctness or release.
 
-## Platform and release assets
+## Configuration surface
 
-| Target | Native build/smoke | Package | Naive runtime |
-|---|---:|---:|---:|
-| Linux amd64 | PASS | PASS | PASS, bundled `libcronet.so` |
-| Linux arm64 | PASS | PASS | PASS, bundled `libcronet.so` |
-| Windows amd64 | PASS | PASS | PASS, bundled `libcronet.dll` |
-| Windows arm64 | PASS | PASS | PASS, bundled `libcronet.dll` |
-| Darwin amd64 | PASS | PASS | intentionally unavailable |
-| Darwin arm64 | PASS | PASS | intentionally unavailable |
+The same parser core, source loader, merge order and typed path engine is used
+in both directions. Direction-specific native schemas remain separate.
 
-Every package records the exact Gust/gust-x revisions, Go version, build tags,
-runtime files and unavailable features in `feature-manifest.json`. Packaging
-checks also cover LF-stable GPL checksum validation, Windows ZIP creation and
-extraction, runtime library placement, license/notice inclusion and flavor
-inspection with `go version -m`.
+| Surface | Inbound `-L` | Outbound/endpoint `-F` |
+|---|---:|---:|
+| `protocol+singbox://` CLI | PASS | PASS |
+| Authority and direction-aware userinfo | PASS | PASS |
+| Nested `path=value` | PASS | PASS |
+| Exact `path:=JSON` | PASS | PASS |
+| Inline readable `json=` | PASS | PASS |
+| JSON file through `json=` | PASS | PASS |
+| Inline/file full config | PASS | PASS |
+| Selected tag | `inbound=` PASS | `outbound=` / `endpoint=` PASS |
+| Gust JSON/YAML metadata | PASS | PASS |
+| Mixed config + CLI override | PASS | PASS |
+| Standard flavor `-O json/yaml` | PASS | PASS |
+| Native canonical validation | PASS | PASS |
+| Secret-redacted errors | PASS | PASS |
 
-## Multi-host operational acceptance
+Readable inline JSON and files are the documented inputs. Base64 controls are
+compatibility-only and are not recommended. No heredoc-specific feature was
+added.
 
-The release-dry-run artifacts were also exercised outside GitHub Actions on
-two independent Linux amd64 VPS hosts and one Darwin arm64 host on the
-maintainer network. Temporary listeners, credentials, firewall rules and test
-files were isolated from the repositories and removed after acceptance.
+Merge priority is fixed:
+
+```text
+selected full-config object
+  < json object overlay
+  < URI authority and userinfo
+  < ordinary query assignments
+```
+
+Adapter controls (`inbound`, `outbound`, `endpoint`,
+`activate_inbounds`) are removed before native assignment and decoding.
+`activate_inbounds` requires exact JSON array syntax and must equal the
+selected inbound's complete native detour closure.
+
+## Full-config safety
+
+| Behavior | Result |
+|---|---|
+| Only the selected inbound starts by default | PASS |
+| Exact inbound detour activation set | PASS |
+| Missing, unrelated, cyclic or duplicate activation tag rejected | PASS |
+| Unselected listener does not bind | PASS |
+| Foreign `route.final` rejected instead of overwritten | PASS |
+| Explicit native route rules retain priority | PASS |
+| Unmatched/default traffic enters GOST final egress | PASS |
+| Fixed non-zero socket port required | PASS |
+| TUN reports a stable synthetic address | PASS |
+| Removed ShadowsocksR stub rejected | PASS |
+| Unknown native resource behavior rejected fail-closed | PASS |
+| Native services/APIs/DNS/NTP/rule-set resources without extractor rejected | PASS |
+| Unsupported generic GOST service wrappers rejected explicitly | PASS |
+
+The checked-in manifest is generated from the pinned sing-box registration
+source with build constraints. CI regenerates it and fails on drift. The full
+feature registry contains 18 inbound registrations: 17 available types and the
+removed ShadowsocksR compatibility stub.
+
+## Native inbound protocol matrix
+
+All available types have a real controlled client/server data path into the
+GOST Router.
+
+| Inbound | TCP | UDP | Additional evidence |
+|---|---:|---:|---|
+| Shadowsocks | PASS | PASS | AEAD authentication |
+| SOCKS | PASS | PASS | authenticated SOCKS5 |
+| HTTP | PASS | n/a | authenticated CONNECT |
+| Mixed | PASS | PASS | SOCKS path |
+| VMess | PASS | PASS | native client |
+| VLESS | PASS | PASS | native client |
+| Trojan | PASS | PASS | TLS |
+| AnyTLS | PASS | PASS | TLS and UoT packet path |
+| Hysteria | PASS | PASS | native QUIC |
+| Hysteria2 | PASS | PASS | native QUIC |
+| TUIC | PASS | PASS | native QUIC |
+| Naive | PASS | n/a | real HTTP/2 CONNECT and Naive framing |
+| Direct | PASS | PASS | override destination |
+| VLESS Reality | PASS | n/a | basic and `xtls-rprx-vision` |
+| ShadowTLS | PASS | dependency path | v3 entry to explicitly activated Shadowsocks detour |
+| TUN | PASS | PASS | real isolated Linux TUN |
+| REDIRECT | PASS | n/a | real iptables REDIRECT and original destination |
+| TProxy | PASS | PASS | real policy route, TPROXY target and original destination |
+| ShadowsocksR | unavailable | unavailable | removed native stub; rejected |
+
+The ordinary outbound matrix remains passing for Shadowsocks, SOCKS4/4a/5,
+HTTP, VMess, VLESS, Reality/Vision, Trojan, AnyTLS, Hysteria2, TUIC, SSH,
+Naive, WireGuard endpoint and Direct. Outbound chaining retains TCP, UDP,
+domain destination, remote DNS, selector, detour and endpoint coverage.
+
+## Chain, DNS and failure matrix
 
 | Scenario | Result |
 |---|---|
-| Linux VPS A to VPS B controlled HTTP/TCP payload | PASS |
-| Linux VPS B to VPS A controlled HTTP/TCP payload | PASS |
-| Darwin CLI `protocol+singbox://` | PASS |
-| Darwin inline node JSON | PASS |
-| Darwin mixed `-C`, `-L` and `-F` | PASS |
-| Darwin two-hop standard GOST plus sing-box chain | PASS |
-| SOCKS5 UDP ASSOCIATE through sing-box to controlled UDP echo | PASS on Darwin and Linux |
-| Actual UDP DNS query through sing-box | PASS on Darwin and Linux |
-| Remote DNS resolves the proxy hostname through the preceding GOST hop | PASS |
+| Native `-L ->` system direct | PASS |
+| Native `-L ->` ordinary GOST `-F` | PASS |
+| Native `-L ->` sing-box `-F` | PASS |
+| Ordinary and embedded nodes mixed in one chain | PASS |
+| Multiple non-contiguous embedded nodes | PASS |
+| Two embedded outbound nodes | PASS |
+| TCP application payload | PASS |
+| UDP application datagram | PASS |
+| One UDP association with multiple targets | PASS |
+| Domain destination retained without premature local resolution | PASS |
+| Actual DNS query through the configured UDP path | PASS |
+| Remote DNS automatically follows a preceding GOST route | PASS |
+| Explicit native DNS detour remains native | PASS |
+| Authentication/TLS/route/DNS failure does not bypass the chain | PASS |
 
-The Darwin and Linux binaries came from run `31072097266`; their manifests
-identified the Gust implementation and gust-x revisions above, plus Go 1.26.5.
-The Linux package included and loaded `libcronet.so`; the Darwin package
-correctly declared Naive and CCM unavailable. TCP checks required the expected
-application response body. UDP checks required an echoed datagram, and DNS
-checks parsed a DNS response with the matching transaction ID and at least one
-answer.
+## Lifecycle, reload and robustness
 
-## Commands used by maintainers
+| Gate | Result |
+|---|---|
+| Synchronous startup reports bind failure | PASS |
+| Replacement starts before old service retirement | PASS |
+| Failed replacement preserves running service | PASS |
+| Active outbound TCP/UDP lease outlives old config handle | PASS |
+| Inbound close stops listener and releases Router | PASS |
+| Multiple service lifecycle isolation | PASS |
+| Fixed port conflict | PASS |
+| Cancel, deadline and forced close | PASS |
+| Runtime-pool singleflight/reference ownership | PASS |
+| Gust-owned lifecycle/config surface under race detector | PASS |
+| URI lexer fuzzing | PASS |
+
+Reality/Vision data paths run normally but are excluded from Go's checkptr race
+mode because pinned upstream `sing-vmess` Vision code faults under that
+instrumentation. The rest of Gust's lifecycle and configuration integration
+remains under `-race`; Reality is still exercised as a real data path on all
+ordinary platform runs.
+
+## Fixed-runner performance
+
+Raw five-sample results and the release thresholds are checked in at
+`SINGBOX-PERFORMANCE-BASELINE.json`. The runner is identified generically;
+private infrastructure addresses are intentionally excluded.
+
+Environment: Linux amd64, Intel Xeon E5-2620 v4, GOMAXPROCS=2, Go 1.26.5,
+sing-box v1.13.16, full feature tags, CGO disabled, loopback MTU 65536.
+
+| Comparison | Official median | Gust median | Ratio | Gate | Result |
+|---|---:|---:|---:|---:|---:|
+| TCP throughput, 64 KiB echo | 699.66 MB/s | 703.35 MB/s | 100.53% | >=90% | PASS |
+| UDP PPS, 1200-byte echo | 10,844 PPS | 10,945 PPS | 100.92% | >=90% | PASS |
+| TCP round-trip p95 / p99 | 106.934 / 117.003 us | 106.740 / 116.663 us | 99.82% / 99.71% | <=110% | PASS |
+| UDP round-trip p95 / p99 | 106.128 / 115.864 us | 105.009 / 115.786 us | 98.95% / 99.93% | <=110% | PASS |
+| Internal egress UDP write | n/a | 152.0 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
+| Fixed-port reload pause | n/a | 3.77 ms median, 3.79 ms p95 | n/a | p95 <=5 ms | PASS |
+
+Resource medians for the one-Box-per-`-L` baseline:
+
+| Boxes | Startup | Live heap delta | Goroutine delta | FD delta | Median max RSS |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 5.04 ms | 342,392 B | 8 | 4 | 19,525,632 B |
+| 2 | 8.05 ms | 609,360 B | 16 | 8 | 20,230,144 B |
+| 10 | 33.19 ms | 3,042,080 B | 80 | 40 | 23,891,968 B |
+| 50 | 216.79 ms | 15,203,776 B | 400 | 200 | 41,893,888 B |
+
+Every one of the 20 fresh-process resource samples returned goroutine and FD
+counts exactly to its pre-start baseline after Close. These numbers prove the
+direct integration boundary meets the release thresholds on the fixed runner;
+they are not WAN or encrypted-protocol performance claims.
+
+## Platform and validation fleet
+
+The same Linux amd64 test binary was hash-verified across five Linux machines;
+the same Darwin arm64 binary was used on the macOS machine.
+
+| Environment | Native protocol matrix | Privileged matrix |
+|---|---:|---:|
+| Three internal Linux hosts | PASS on all | TUN/REDIRECT/TProxy PASS on all |
+| Overseas Linux VPS A | PASS | TUN/REDIRECT/TProxy PASS |
+| Overseas Linux VPS B | PASS | TUN/REDIRECT PASS; nested-netns TProxy unavailable |
+| Internal Darwin arm64 | PASS | Linux-only, n/a |
+
+On VPS B, the kernel accepted the TPROXY target, incremented firewall counters
+and loaded the required modules, but did not deliver marked traffic inside the
+nested isolated namespace. That host is recorded as an environment capability
+exception, not a product pass. Four independent Linux kernels completed the
+same real TProxy TCP/UDP data path.
+
+CI cross-builds and native smoke cover Linux amd64/arm64, Windows amd64/arm64
+and Darwin amd64/arm64. Linux and Windows packages include the matching Cronet
+library for Naive outbound. Darwin records `naive_outbound` and CCM as
+unavailable; Naive inbound remains available.
+
+## Reproduction commands
 
 ```bash
-# Main command package, including the embedded manual
-go test ./cmd/gost
+# Standard regression
+(cd ../gust-x && go test ./...)
 
-# Embedded backend and integration packages
+# Full embedded feature set
 tags="$(bash .github/scripts/singbox-tags.sh)"
-(cd ../gust-x && go test -tags "$tags" \
-  ./backend/singbox ./config/cmd/singboxuri ./config/cmd \
-  ./chain ./config/parsing/node ./hop)
+(cd ../gust-x && go test -p 1 -tags "$tags" ./backend/singbox ./config/...)
 
-# Gust-owned race surface; protocol data paths are split in CI as noted below
-(cd ../gust-x && go test -race -tags "$tags" \
-  ./backend/singbox ./config/cmd/singboxuri ./config/cmd \
-  ./chain ./config/parsing/node ./hop)
+# Privileged Linux matrix (run from a full-tag test binary as root)
+GUST_SINGBOX_PRIVILEGED_TESTS=1 ./singbox.test \
+  -test.v -test.run '^TestEmbeddedLinuxPrivilegedInboundMatrix$'
 
-# Fuzz the URI lexer
-(cd ../gust-x && go test ./config/cmd/singboxuri \
-  -run '^$' -fuzz '^FuzzLexDoesNotPanic$' -fuzztime 3s)
+# Official differential and internal egress performance
+GOMAXPROCS=2 ./singbox.test -test.run '^$' \
+  -test.bench '^(BenchmarkInboundTCPThroughput|BenchmarkInboundUDPPPS|BenchmarkEgressUDPPacket|BenchmarkInboundReloadSamePort)$' \
+  -test.benchmem -test.benchtime=2s -test.count=5
 
-# Build one release asset
-bash .github/scripts/build_singbox_asset.sh \
-  --version test --tag test --goos linux --goarch amd64 --out-dir /tmp/gust-assets
+# Fresh process for each resource count
+GOMAXPROCS=2 GUST_SINGBOX_RESOURCE_BOXES=50 ./singbox.test \
+  -test.v -test.run '^TestInboundBoxResourceProfile$'
+
+# Validate checked-in raw evidence and release gates
+python3 .github/scripts/check_singbox_performance.py
 ```
 
-CI excludes real HTTP/2 and gRPC data-plane cases from the race command, then
-runs them normally. sing-box v1.13.16 has upstream race-detector findings in
-those transport initializers; Gust lifecycle/config integration remains under
-`-race`, while HTTP/2 and gRPC application data paths still have passing native
-tests.
+## Remaining publication gate
 
-## Acceptance boundaries
-
-- The embedded backend implements outbound and endpoint use. `-L` does not map
-  arbitrary sing-box inbounds, and complete configs containing inbounds are
-  rejected.
-- Protocol UDP data-path gates include a remote-only domain association that
-  is preserved as a SOCKS address without local resolution. Direct UDP still
-  uses local DNS by design because no remote resolver exists.
-- GOST's empty-destination UDP dial is retained as an unconnected packet
-  connection, so a SOCKS5 listener can relay each UDP ASSOCIATE datagram to
-  the destination supplied to `WriteTo`.
-- Full-config DNS gates cover both the sing-box `hosts` transport and a real
-  networked UDP DNS transport automatically attached to the preceding prefix.
-- Darwin release assets use a reproducible `CGO_ENABLED=0` limited feature set
-  and intentionally omit Naive and CCM.
-- Formal publishing was not part of the dry-run: merge approval, release tag
-  and GitHub Release remain explicit maintainer gates.
-- GitHub currently emits a Node.js 20 deprecation annotation for upstream
-  action versions. Jobs are forced onto Node.js 24 by GitHub and pass; the
-  annotation is not a product-test failure.
+The candidate becomes PASS only after the updated gust-x pin and Gust branch
+complete every required GitHub workflow, including standard isolation,
+privileged Linux, protocol data paths, cross-build/native smoke, packaging and
+release rehearsal. Publishing still requires a clean pushed source branch and
+an `singbox-v*` tag contained in `origin/singbox-backend`.
