@@ -33,9 +33,22 @@ jobs:
       GO_VERSION: 1.26.5
     steps:
       - name: Checkout gust
+        if: ${{ matrix.suite != 'privileged' }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Checkout gust for privileged suite
+        if: ${{ matrix.suite == 'privileged' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin \
+            "+${GITHUB_REF}:refs/remotes/origin/validation"
+          git checkout --detach refs/remotes/origin/validation
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
 
       - name: Set up Go
         uses: actions/setup-go@v5
