@@ -190,20 +190,28 @@ jobs:
           (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -p 1 -tags "${tags}" \
             -run "${protocol_tests}" ./backend/singbox)
 
-      - name: Test privileged Linux sing-box inbounds
+      - name: Build privileged Linux test binary
         if: ${{ matrix.suite == 'privileged' }}
         shell: bash
         run: |
           set -euo pipefail
           tags="$(bash .github/scripts/singbox-tags.sh)"
+          test_binary="${RUNNER_TEMP}/singbox-privileged.test"
+          timeout --signal=TERM --kill-after=30s 20m \
+            go -C ../gust-x test -c -tags "${tags}" \
+            -o "${test_binary}" ./backend/singbox
+
+      - name: Run privileged Linux inbound matrix
+        if: ${{ matrix.suite == 'privileged' }}
+        shell: bash
+        run: |
+          set -euo pipefail
           cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
           test_binary="${RUNNER_TEMP}/singbox-privileged.test"
-          (cd ../gust-x && go test -c -tags "${tags}" \
-            -o "${test_binary}" ./backend/singbox)
           sudo env \
             LD_LIBRARY_PATH="${cronet_dir}" \
             GUST_SINGBOX_PRIVILEGED_TESTS=1 \
-            "${test_binary}" \
+            timeout --signal=TERM --kill-after=30s 5m "${test_binary}" \
             -test.v \
             -test.timeout=3m \
             -test.run='^TestEmbeddedLinuxPrivilegedInboundMatrix$'
