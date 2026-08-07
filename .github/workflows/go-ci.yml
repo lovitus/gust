@@ -224,6 +224,7 @@ jobs:
           sudo env \
             LD_LIBRARY_PATH="${cronet_dir}" \
             GUST_SINGBOX_PRIVILEGED_TESTS=1 \
+            unshare --pid --fork --mount-proc --kill-child=KILL \
             timeout --signal=TERM --kill-after=30s 5m "${test_binary}" \
             -test.v \
             -test.timeout=3m \
