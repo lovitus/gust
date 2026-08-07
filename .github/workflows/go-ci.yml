@@ -123,18 +123,23 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
             go build -trimpath -tags "${tags}" -o "${binary}" ./cmd/gost
 
-          set +e
-          LD_LIBRARY_PATH="${cronet_dir}" timeout --signal=TERM --kill-after=5s 2s \
+          # Run in a dedicated session and kill the entire group. Cronet may
+          # create descendants; leaving one behind keeps a hosted runner job
+          # in progress after every visible step has completed.
+          setsid env LD_LIBRARY_PATH="${cronet_dir}" \
             "${binary}" -L 'http://127.0.0.1:18993' \
             -F 'naive+singbox://user:password@127.0.0.1:443?tls.enabled=true' \
-            >"${RUNNER_TEMP}/naive-smoke.log" 2>&1
-          status=$?
-          set -e
-          if [[ "${status}" -ne 124 ]]; then
+            >"${RUNNER_TEMP}/naive-smoke.log" 2>&1 &
+          smoke_pid=$!
+          sleep 2
+          if ! kill -0 "${smoke_pid}" 2>/dev/null; then
+            wait "${smoke_pid}" || status=$?
             cat "${RUNNER_TEMP}/naive-smoke.log" >&2
-            echo "Naive runtime exited early with status ${status}" >&2
+            echo "Naive runtime exited early with status ${status:-unknown}" >&2
             exit 1
           fi
+          kill -KILL -- "-${smoke_pid}" 2>/dev/null || true
+          wait "${smoke_pid}" 2>/dev/null || true
 
       - name: Verify standard and singbox flavors
         run: bash .github/scripts/verify_singbox_flavors.sh
@@ -194,7 +199,6 @@ jobs:
 
   singbox-cross-build:
     name: singbox cross-build / ${{ matrix.goos }}-${{ matrix.goarch }}
-    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -260,7 +264,6 @@ jobs:
 
   singbox-native-smoke:
     name: singbox native smoke / ${{ matrix.goos }}-${{ matrix.goarch }}
-    needs: test
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
