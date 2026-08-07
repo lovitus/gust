@@ -47,9 +47,20 @@ dns_pid=$!
     -F 'direct+singbox://' >"${gust_log}" 2>&1
 ) &
 gust_pid=$!
+stop_processes() {
+  if [[ $# -eq 0 ]]; then
+    return
+  fi
+  kill "$@" 2>/dev/null || true
+  # Git Bash cannot reliably deliver a graceful signal to every Windows
+  # process. Bound shutdown before waiting so a Gust/Cronet child cannot keep
+  # the native-smoke job alive after all assertions have passed.
+  sleep 1
+  kill -KILL "$@" 2>/dev/null || true
+  wait "$@" 2>/dev/null || true
+}
 cleanup() {
-  kill "${gust_pid}" "${echo_pid}" "${udp_pid}" "${dns_pid}" 2>/dev/null || true
-  wait "${gust_pid}" "${echo_pid}" "${udp_pid}" "${dns_pid}" 2>/dev/null || true
+  stop_processes "${gust_pid}" "${echo_pid}" "${udp_pid}" "${dns_pid}"
 }
 trap cleanup EXIT
 
@@ -95,6 +106,5 @@ if python3 -c 'import json,sys; sys.exit("naive_outbound" in json.load(open(sys.
     echo "Naive runtime exited during native asset smoke" >&2
     exit 1
   fi
-  kill "${naive_pid}" 2>/dev/null || true
-  wait "${naive_pid}" 2>/dev/null || true
+  stop_processes "${naive_pid}"
 fi
