@@ -115,9 +115,10 @@ from TCP port 53 or from one external resolver.
 | Gust-owned lifecycle/config surface under `-race` | PASS |
 | URI lexer fuzzing | PASS, approximately 240,000 executions in 3 seconds |
 
-Runtime-pool handle benchmark, three local runs: approximately 13.4–13.5
-microseconds/op, 22,484 bytes/op and 341 allocations/op. Benchmarks are
-diagnostic baselines, not release pass/fail thresholds.
+Runtime-pool handle benchmark, five local runs on Apple M4 with Go 1.26.3:
+approximately 13.3–13.6 microseconds/op, 22,486–22,487 bytes/op and 341
+allocations/op. Benchmarks are diagnostic baselines, not release pass/fail
+thresholds and do not measure an encrypted protocol or network RTT.
 
 ## Platform and release assets
 

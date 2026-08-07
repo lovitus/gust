@@ -49,6 +49,40 @@ Use single quotes around node URIs in POSIX shells so `&`, `?`, brackets and
 JSON are not interpreted by the shell. In PowerShell, single quotes work for
 the same examples.
 
+## Architecture and request path
+
+The integration embeds sing-box as a Go library in the Gust process. It does
+not execute a `sing-box` child process and does not create a hidden localhost
+SOCKS/HTTP bridge. The normal data path is:
+
+```text
+application
+  -> Gust -L listener and handler
+  -> preceding Gust -F nodes, if any
+  -> selected embedded sing-box outbound or endpoint
+  -> destination
+```
+
+Gust owns the listener, authentication, service routing, chain selection and
+the final bidirectional copy. sing-box owns the selected outbound protocol,
+including its encryption, TLS/Reality/QUIC transport, multiplexing, DNS
+dependencies and explicit detours. Gust calls that selected outbound directly;
+the request is not fed through a sing-box inbound. Consequently, sing-box
+`route.rules` do not select the initial outbound for a Gust request. Select the
+required tag with `outbound=`/`endpoint=` or perform initial policy selection
+in Gust. The complete configuration is still available to dependencies used
+by the selected node.
+
+At configuration time, the CLI or Gust connector metadata is parsed into a
+sing-box node plus an optional complete dependency graph. A singbox flavor
+validates both with the pinned native sing-box option types. Before a runtime
+is acquired, the typed options are serialized into canonical JSON. The runtime
+pool key covers that canonical JSON, the source kind, embedded sing-box
+version, compiled feature set and the preceding-route scope. Equal keys share
+one `box.Box`; `singleflight` prevents concurrent duplicate construction.
+Handles and active TCP/UDP connections hold reference-counted leases, so a
+reload can start a replacement before the old runtime is retired.
+
 ## CLI configuration
 
 ### URI syntax
@@ -192,8 +226,8 @@ gost -L 'http://127.0.0.1:8080' \
 
 ## Complete sing-box configuration
 
-Use a complete config when the selected outbound depends on DNS, route rules,
-`selector`/`urltest`, `detour`, services, or endpoints:
+Use a complete config when the selected outbound depends on DNS,
+`selector`/`urltest`, `detour`, services, endpoints or other tagged objects:
 
 ```bash
 gost -L 'socks5://127.0.0.1:1080' \
@@ -329,6 +363,24 @@ running it. The output can contain credentials, so do not publish it:
 gost -L 'socks5://127.0.0.1:1080' -F 'singbox://?json=./node.json' -O json
 ```
 
+### What configuration output preserves
+
+`-O` renders the effective Gust configuration, not the original sing-box text.
+For a singbox flavor, native validation canonicalizes the node and complete
+config first. JSON/YAML whitespace, object key order and source-file layout are
+therefore not preserved; `json=` and `config=` require strict JSON, so source
+comments are not accepted or preserved. Aliases are expanded to canonical
+protocol names, native field types are retained and the result is deterministic
+for the same effective input. In a standard flavor, native validation is
+deferred, so use `path:=JSON` when booleans, numbers, arrays or null must retain
+an exact type across both flavors.
+
+Relative `json=` and `config=` paths are resolved against the process working
+directory when the command/config is parsed, and each file source is limited
+to 16 MiB. The rendered metadata contains the merged object, not a byte-for-byte
+reference round trip. Treat `-O` output as a secret-bearing generated config,
+not as a formatter for the source file.
+
 ## Proxy chains
 
 Repeat `-F` to build a multi-hop chain in command-line order:
@@ -343,6 +395,15 @@ gost -L 'http://127.0.0.1:8080' \
 A sing-box node can be first, middle, or last. When it follows another GOST
 node, its network leaf uses the request-scoped GOST prefix route. A prefix
 failure is fail-closed and does not silently fall back to the system network.
+
+Internally, a sing-box node is a self-dialing GOST transport. When chain
+construction reaches one, Gust moves all preceding nodes into that transport's
+prefix route and starts a new route segment. The sing-box node then opens the
+next hop or final destination itself. If another GOST node follows it, sing-box
+dials that node's address and the following node performs its normal handshake.
+Two sing-box nodes work the same way recursively: the second receives a prefix
+whose first self-dialing node already contains the earlier prefix. This avoids
+an extra local proxy socket while preserving command-line `-F` order.
 
 A complete sing-box config may contain its own `detour`, selector and DNS
 dependencies. Outbound and endpoint leaves without a user detour observe the
@@ -408,6 +469,55 @@ GOST route; no placeholder outbound is required:
 When testing DNS, send an actual DNS query through the configured path. A TCP
 connection to port 53 does not validate UDP DNS, and a single public resolver
 failure does not prove that the proxy transport is broken.
+
+## Performance and trade-offs
+
+There is no single meaningful "sing-box overhead percentage": Internet RTT,
+the chosen protocol, cryptography, TLS/QUIC handshakes, multiplex settings and
+packet sizes normally dominate. The integration-specific costs are narrower:
+
+- TCP payloads are not copied through an internal localhost proxy. The backend
+  returns the native sing-box connection with lifecycle and runtime-lease
+  wrappers; Gust then performs its usual service copy. After connection setup,
+  the wrappers do not copy each TCP payload.
+- Each routed connection creates/acquires a lightweight selected-tag handle.
+  The expensive `box.Box` is shared when the canonical key matches, but schema
+  decode/canonicalization, hashing, locks and reference accounting still occur.
+  On an Apple M4 with Go 1.26.3, five local runs of
+  `BenchmarkRuntimePoolHandle` measured 13.3–13.6 microseconds/op, about
+  22.5 KiB/op and 341 allocations/op. This is a diagnostic microbenchmark, not
+  a promise for other machines or a measurement of a proxy protocol.
+- The connected UDP adapter currently allocates a temporary
+  `len(application buffer) + 512` byte buffer on each `Read`. The extra headroom
+  prevents SOCKS-style address headers from truncating the datagram before
+  sing-box removes them. This is correct but can increase allocation and GC
+  pressure for high packet-rate UDP workloads.
+- Protocol costs are the native sing-box implementation's costs: for example,
+  AEAD encryption, Reality/TLS, QUIC congestion control, padding and protocol
+  multiplexing. Gust adds listener/handler and chain work around that data
+  path; it does not remove those costs.
+
+Practical advantages are one process, no IPC or hidden listener, full selected
+node dependency graphs, composition with existing Gust nodes, fail-closed
+prefix chaining, remote UDP domain preservation and safe reload leases. The
+main costs and limits are a larger singbox binary and runtime memory footprint,
+the per-connection handle work above, current UDP read allocation, a pinned
+schema/feature set, platform-specific features, no `Bind`, no implicit
+sing-box inbounds and no sing-box inbound-router selection of the initial tag.
+Use the standard flavor when none of the embedded protocols is needed.
+
+For reproducible local diagnostics, limit the TCP dial iteration count on
+systems with a small ephemeral-port range:
+
+```bash
+tags="$(bash ../gust/.github/scripts/singbox-tags.sh)"
+go test -tags "$tags" ./backend/singbox -run '^$' \
+  -bench 'Benchmark(TCP|RuntimePool)' -benchmem -benchtime=500x
+```
+
+Loopback throughput results are kernel-buffer microbenchmarks. They can detect
+regressions and allocations but must not be presented as WAN or encrypted
+protocol throughput.
 
 ## Validation and troubleshooting
 
