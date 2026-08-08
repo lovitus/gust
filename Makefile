@@ -1,4 +1,5 @@
 NAME=gost
+ROUTE_MANAGER_NAME=gost-route-manager
 BINDIR=bin
 VERSION=$(shell cat cmd/gost/version.go | grep 'version =' | sed 's/.*\"\(.*\)\".*/\1/g')
 GOBUILD=CGO_ENABLED=0 go build --ldflags="-s -w" -v -x -a
@@ -32,6 +33,15 @@ WINDOWS_ARCH_LIST = \
 	windows-arm64
 
 all: linux-amd64 darwin-amd64 darwin-arm64 windows-amd64 # Most used
+
+# Desktop route manager for the current host. Fyne requires CGO and the host's
+# native GUI development libraries. On Windows, use the windowsgui flags below
+# to avoid opening a console window.
+route-manager:
+	CGO_ENABLED=1 go build -trimpath --ldflags="-s -w" -o $(BINDIR)/$(ROUTE_MANAGER_NAME) ./cmd/gost-route-manager
+
+route-manager-windows:
+	CGO_ENABLED=1 go build -trimpath --ldflags="-s -w -H=windowsgui" -o $(BINDIR)/$(ROUTE_MANAGER_NAME).exe ./cmd/gost-route-manager
 
 darwin-amd64:
 	GOARCH=amd64 GOOS=darwin $(GOBUILD) -o $(BINDIR)/$(NAME)-$@ $(GOFILES)

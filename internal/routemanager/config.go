@@ -1,0 +1,183 @@
+package routemanager
+
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+)
+
+const (
+	configVersion = 1
+	defaultMTU    = 1420
+)
+
+type Tunnel struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Routes string `json:"routes"`
+	Target string `json:"target"`
+}
+
+type Config struct {
+	Version int      `json:"version"`
+	Tunnels []Tunnel `json:"tunnels"`
+}
+
+type RouteOptions struct {
+	Routes []string
+	DNS    []string
+	MTU    int
+}
+
+func DefaultConfigPath() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "gust", "route-manager.json"), nil
+}
+
+func Load(path string) (Config, error) {
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return Config{Version: configVersion}, nil
+	}
+	if err != nil {
+		return Config{}, err
+	}
+	var cfg Config
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return Config{}, fmt.Errorf("读取配置失败: %w", err)
+	}
+	if cfg.Version == 0 {
+		cfg.Version = configVersion
+	}
+	return cfg, nil
+}
+
+// Save deliberately truncates an existing file instead of replacing it. This
+// preserves the original user's ownership when an elevated UI saves changes.
+func Save(path string, cfg Config) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	cfg.Version = configVersion
+	b, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err = f.Write(append(b, '\n')); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
+}
+
+func ParseRouteOptions(input string) (RouteOptions, error) {
+	opts := RouteOptions{MTU: defaultMTU}
+	dnsContinuation := false
+	for _, raw := range strings.Split(input, ",") {
+		item := strings.TrimSpace(raw)
+		if item == "" {
+			continue
+		}
+		key, value, hasValue := strings.Cut(item, "=")
+		if hasValue {
+			dnsContinuation = false
+			switch strings.ToLower(strings.TrimSpace(key)) {
+			case "dns":
+				dnsContinuation = true
+				for _, server := range strings.FieldsFunc(value, func(r rune) bool { return r == '|' || r == ';' || r == ' ' }) {
+					if net.ParseIP(server) == nil {
+						return RouteOptions{}, fmt.Errorf("无效 DNS 地址 %q", server)
+					}
+					opts.DNS = append(opts.DNS, server)
+				}
+			case "mtu":
+				mtu, err := strconv.Atoi(strings.TrimSpace(value))
+				if err != nil || mtu < 576 || mtu > 9000 {
+					return RouteOptions{}, fmt.Errorf("MTU 必须在 576 到 9000 之间")
+				}
+				opts.MTU = mtu
+			default:
+				return RouteOptions{}, fmt.Errorf("未知路由选项 %q", key)
+			}
+			continue
+		}
+		if dnsContinuation && net.ParseIP(item) != nil {
+			opts.DNS = append(opts.DNS, item)
+			continue
+		}
+		dnsContinuation = false
+		if _, _, err := net.ParseCIDR(item); err != nil {
+			return RouteOptions{}, fmt.Errorf("无效路由 %q，请使用 CIDR", item)
+		}
+		opts.Routes = append(opts.Routes, item)
+	}
+	if len(opts.Routes) == 0 {
+		return RouteOptions{}, errors.New("至少需要一条 CIDR 路由")
+	}
+	return opts, nil
+}
+
+func NormalizeTarget(target string) (string, error) {
+	target = strings.TrimSpace(target)
+	if strings.HasPrefix(target, "-F") {
+		target = strings.TrimSpace(strings.TrimPrefix(target, "-F"))
+	}
+	if target == "" {
+		return "", errors.New("目标 SOCKS / -F 不能为空")
+	}
+	if !strings.Contains(target, "://") {
+		target = "socks5://" + target
+	}
+	u, err := url.Parse(target)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return "", fmt.Errorf("无效的 -F 目标 %q", target)
+	}
+	return u.String(), nil
+}
+
+func BuildArgs(t Tunnel) ([]string, error) {
+	if strings.TrimSpace(t.Name) == "" {
+		return nil, errors.New("隧道名字不能为空")
+	}
+	opts, err := ParseRouteOptions(t.Routes)
+	if err != nil {
+		return nil, err
+	}
+	target, err := NormalizeTarget(t.Target)
+	if err != nil {
+		return nil, err
+	}
+
+	h := sha256.Sum256([]byte(t.ID + "\x00" + t.Name))
+	// Allocate a stable /30 inside 198.18.0.0/15 for each saved tunnel.
+	block := (uint32(h[0])<<8 | uint32(h[1])) % (1 << 15)
+	base := uint32(198)<<24 | uint32(18)<<16 | block<<2
+	tunIP := net.IPv4(byte(base>>24), byte(base>>16), byte(base>>8), byte(base+1)).String() + "/30"
+	ifName := fmt.Sprintf("grm%x", h[:5])
+
+	u := &url.URL{Scheme: "tungo", Host: ":0"}
+	q := u.Query()
+	q.Set("name", ifName)
+	q.Set("net", tunIP)
+	q.Set("routes", strings.Join(opts.Routes, ","))
+	q.Set("mtu", strconv.Itoa(opts.MTU))
+	if len(opts.DNS) > 0 {
+		q.Set("dns", strings.Join(opts.DNS, ","))
+	}
+	u.RawQuery = q.Encode()
+	return []string{"-L", u.String(), "-F", target}, nil
+}

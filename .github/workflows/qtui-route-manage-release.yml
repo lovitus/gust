@@ -1,0 +1,196 @@
+name: qtui-route-manage-release
+
+on:
+  push:
+    tags:
+      - 'qtui-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Build-only version used for artifact validation
+        required: true
+        default: 0.1.0-ci
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: '1.26.5'
+
+jobs:
+  guard:
+    name: validate QtUI release source
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+      publish: ${{ steps.meta.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Require qtui-route-manage and resolve metadata
+        id: meta
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git fetch origin \
+            '+refs/heads/master:refs/remotes/origin/master' \
+            '+refs/heads/qtui-route-manage:refs/remotes/origin/qtui-route-manage'
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            PUBLISH=true
+          else
+            if [[ "${GITHUB_REF_TYPE}" != "branch" || "${GITHUB_REF_NAME}" != "qtui-route-manage" ]]; then
+              echo "build-only validation must run from qtui-route-manage" >&2
+              exit 1
+            fi
+            TAG="qtui-v${INPUT_VERSION#qtui-v}"
+            PUBLISH=false
+          fi
+
+          if [[ ! "${TAG}" =~ ^qtui-v[0-9A-Za-z][0-9A-Za-z._-]*$ ]]; then
+            echo "QtUI release tags must match qtui-v*: ${TAG}" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/qtui-route-manage; then
+            echo "${GITHUB_SHA} is not contained in origin/qtui-route-manage" >&2
+            exit 1
+          fi
+
+          {
+            echo "tag=${TAG}"
+            echo "version=${TAG#qtui-v}"
+            echo "publish=${PUBLISH}"
+          } >> "${GITHUB_OUTPUT}"
+
+  build:
+    name: native build / ${{ matrix.os }}
+    needs: guard
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Read pinned gust-x commit
+        id: gustx
+        shell: bash
+        run: echo "ref=$(tr -d '[:space:]' < .github/qtui-route-manage-gust-x.ref)" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout pinned gust-x
+        uses: actions/checkout@v7
+        with:
+          repository: lovitus/gust-x
+          token: ${{ secrets.GH_PAT }}
+          ref: ${{ steps.gustx.outputs.ref }}
+          path: gust-x
+
+      - name: Place gust-x beside Gust
+        shell: bash
+        run: mv gust-x ../gust-x
+
+      - name: Install Linux desktop build dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
+
+      - name: Install Windows desktop compiler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install mingw --no-progress -y
+
+      - name: Build native binaries
+        id: native
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOOS_NAME="$(go env GOOS)"
+          GOARCH_NAME="$(go env GOARCH)"
+          TARGET="${GOOS_NAME}-${GOARCH_NAME}"
+          EXT=""
+          GUI_LDFLAGS="-s -w"
+          if [[ "${GOOS_NAME}" == "windows" ]]; then
+            EXT=".exe"
+            GUI_LDFLAGS="-s -w -H=windowsgui"
+          fi
+
+          mkdir -p dist/package
+          go build -trimpath -ldflags="-s -w" \
+            -o "dist/package/gost${EXT}" ./cmd/gost
+          CGO_ENABLED=1 go build -trimpath -ldflags="${GUI_LDFLAGS}" \
+            -o "dist/package/gost-route-manager${EXT}" ./cmd/gost-route-manager
+
+          VERSION="${{ needs.guard.outputs.version }}"
+          if [[ "${GOOS_NAME}" == "windows" ]]; then
+            ARCHIVE="gust-qtui-${TARGET}-${VERSION}.zip"
+            7z a "dist/${ARCHIVE}" "./dist/package/*"
+          else
+            ARCHIVE="gust-qtui-${TARGET}-${VERSION}.tar.gz"
+            tar -czf "dist/${ARCHIVE}" -C dist/package .
+          fi
+          echo "archive=${ARCHIVE}" >> "${GITHUB_OUTPUT}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.native.outputs.archive }}
+          path: dist/${{ steps.native.outputs.archive }}
+          if-no-files-found: error
+          retention-days: 3
+
+  release:
+    name: publish independent QtUI release
+    needs:
+      - guard
+      - build
+    if: ${{ needs.guard.outputs.publish == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: gust-qtui-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        shell: bash
+        run: (cd dist && sha256sum -- ./* > checksums.txt)
+
+      - name: Publish without changing standard channels
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.guard.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" dist/* --clobber
+          else
+            gh release create "${TAG}" dist/* \
+              --title "${TAG} — QtUI route manager" \
+              --generate-notes \
+              --prerelease \
+              --latest=false
+          fi
