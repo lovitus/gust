@@ -95,6 +95,10 @@ jobs:
         if: ${{ matrix.suite == 'core' }}
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
+      - name: Reject private endpoints in published sing-box docs
+        if: ${{ matrix.suite == 'core' }}
+        run: python3 .github/scripts/check_singbox_doc_privacy.py
+
       - name: Verify fixed-runner sing-box performance baseline
         if: ${{ matrix.suite == 'core' }}
         run: python3 .github/scripts/check_singbox_performance.py

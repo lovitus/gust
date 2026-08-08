@@ -124,7 +124,7 @@ gost -L 'ss+singbox://chacha20-ietf-poly1305:SECRET@0.0.0.0:8388'
 gost -L 'vless+singbox://UUID@0.0.0.0:443?tls.enabled=true&tls.server_name=example.com&tls.reality.enabled=true&tls.reality.private_key=PRIVATE_KEY&tls.reality.short_id=SHORT_ID&tls.reality.handshake.server=example.com&tls.reality.handshake.server_port:=443'
 
 # TUN, REDIRECT and TProxy are Linux/system-resource listeners
-gost -L 'tun+singbox://?interface_name=gust0&address:=["10.77.0.1/30"]&stack=gvisor'
+gost -L 'tun+singbox://?interface_name=gust0&address:=["192.0.2.1/30"]&stack=gvisor'
 gost -L 'redirect+singbox://0.0.0.0:12345'
 gost -L 'tproxy+singbox://0.0.0.0:12345?network:=["tcp","udp"]'
 ```
@@ -193,6 +193,47 @@ gost -L 'socks5://127.0.0.1:1080' \
 gost -L 'http://127.0.0.1:8080' \
   -F 'ssh+singbox://USER:PASSWORD@proxy.example.com:22'
 ```
+
+### Certified protocol quick reference
+
+`PASS` below means that a real native peer exchanged and verified application
+payloads. It never means only that a URI parsed or a port opened.
+
+| Native `-L` inbound | TCP | UDP | Important requirement |
+|---|---:|---:|---|
+| Shadowsocks, SOCKS, Mixed | PASS | PASS | Match method/users; enable UDP in the client path |
+| HTTP | PASS | n/a | CONNECT authentication is native |
+| VMess, VLESS | PASS | PASS | Match UUID and transport options |
+| Trojan | PASS | PASS | Valid certificate/SNI and password |
+| AnyTLS | PASS | PASS | TLS; packet path uses UoT |
+| Hysteria, Hysteria2, TUIC | PASS | PASS | QUIC/UDP reachability and valid TLS |
+| Naive | PASS | n/a | HTTP/2 CONNECT and Naive framing |
+| Direct | PASS | PASS | Explicit destination override |
+| VLESS Reality / Vision | PASS | n/a in certified profiles | Public/private key, SNI, short ID and flow must match |
+| ShadowTLS | PASS | detour-dependent | Exact inbound detour activation set |
+| TUN | PASS | PASS | Linux network privilege, interface and routes |
+| REDIRECT | PASS | n/a | Linux firewall original-destination support |
+| TProxy | PASS | PASS | Linux policy routing and TPROXY target |
+
+| Native `-F` outbound/endpoint | TCP | UDP | Important requirement |
+|---|---:|---:|---|
+| Shadowsocks | PASS | PASS | Matching AEAD method/key |
+| SOCKS4 / SOCKS4a | PASS | n/a | IPv4/domain target form |
+| SOCKS5 | PASS | PASS | Upstream UDP association support |
+| HTTP | PASS | n/a | CONNECT upstream |
+| VMess, VLESS, Trojan | PASS | PASS | Matching peer, transport and security fields |
+| Reality / Vision | PASS | n/a in certified profiles | Key/SNI/short ID/flow must match |
+| AnyTLS | PASS | PASS | TLS and UoT support |
+| Hysteria2, TUIC | PASS | PASS | QUIC/UDP reachability |
+| SSH, Naive | PASS | n/a | Native protocol handshake |
+| WireGuard endpoint | PASS | PASS | Select with `endpoint=` |
+| Direct | PASS | PASS | Baseline and explicit native route |
+
+ShadowsocksR is a removed sing-box compatibility stub and is rejected. A
+protocol marked `n/a` does not gain UDP support from Gust. Platform packaging
+also matters: Darwin lacks the Cronet Naive outbound and CCM, while the Naive
+inbound remains available. Inspect `feature-manifest.json` instead of assuming
+that a type compiled for one platform exists on another.
 
 Percent-encode reserved characters in user information and paths. For
 example, `@` in a password becomes `%40`, `/ws` can be written `%2Fws`, and a
@@ -629,7 +670,7 @@ GOST route; no placeholder outbound is required:
 {
   "dns": {
     "servers": [
-      {"type": "udp", "tag": "remote-dns", "server": "1.1.1.1"}
+      {"type": "udp", "tag": "remote-dns", "server": "dns.example.com"}
     ]
   },
   "outbounds": [
@@ -648,6 +689,83 @@ When testing DNS, send an actual DNS query through the configured path. A TCP
 connection to port 53 does not validate UDP DNS, and a single public resolver
 failure does not prove that the proxy transport is broken.
 
+## User acceptance recipe
+
+Test the exact packaged binary and configuration that will be deployed. Keep a
+direct control result from the same client and target so a target outage is not
+misreported as a proxy failure.
+
+1. **Identity:** require `flavor=singbox`, the expected sing-box version and the
+   expected platform features from `-V` and `feature-manifest.json`.
+2. **Configuration:** render with `-O json`, inspect direction, selected tag,
+   types and merge overrides locally, then securely delete or protect the
+   secret-bearing output.
+3. **TCP:** fetch or echo a controlled payload through the actual `-L`; compare
+   its bytes or digest, not just the HTTP status or open port.
+4. **UDP:** send distinct datagrams and compare payloads. For a SOCKS UDP
+   association, use at least two target ports and one domain destination to
+   catch accidental fixed-target or local-resolution behavior.
+5. **DNS:** send a fresh A or AAAA query through the configured UDP route and
+   parse the response. Repeat against a second controlled resolver before
+   diagnosing a transport from one resolver's failure.
+6. **Security:** repeat one request with a deliberately wrong password, UUID,
+   key, SNI or route. It must fail and must not appear at the final target.
+7. **Shutdown/reload:** close the client, stop Gust, verify the listener is
+   released, then reload on the fixed port while an existing outbound lease is
+   active.
+
+A small local TCP control can be run without an Internet target:
+
+```bash
+python3 -m http.server 18080 --bind 127.0.0.1
+
+# In another terminal, start the configuration under test, then force curl to
+# use the local SOCKS listener even for a loopback target.
+curl --fail --noproxy '' --socks5-hostname 127.0.0.1:1080 \
+  http://127.0.0.1:18080/
+```
+
+This proves only TCP for that listener and chain. It does not prove UDP, DNS,
+Reality or a provider node. A Reality check must pass application bytes after
+the native handshake; a TCP connect to its port is not sufficient.
+
+For TUN, REDIRECT and TProxy, use an isolated Linux network namespace or a
+dedicated test host. Record the selected firewall backend, rules and counters,
+policy routes, original destination and target receipt. A privileged Docker
+container can still differ from the host's firewall backend: a nested REDIRECT
+failure must be reproduced in a host-created isolated namespace before it is
+classified as a product defect. Never weaken production firewall policy merely
+to make a test pass.
+
+## Security hardening
+
+- Prefer JSON files with owner-only permissions for long credentials. URI
+  credentials may be retained in shell history, process listings or service
+  manager metadata.
+- Treat `-O json`, `-O yaml`, debug logs and provider configuration as
+  secret-bearing output. Do not paste them into issues without manual review.
+- Use strict certificate verification and the actual SNI. Do not disable TLS
+  verification to hide a name, clock or trust-chain error.
+- Keep `route.final` under Gust ownership for native `-L`. Convert an intended
+  native exception to an explicit rule; do not expect Gust to overwrite a
+  foreign final route.
+- Activate only the selected inbound and its exact declared detour closure.
+  Unknown, duplicated, cyclic or unrelated activation tags must remain errors.
+- Bind administrative or local proxy listeners to loopback unless remote
+  access is intentional. Apply native authentication and firewall policy to
+  every remotely reachable listener.
+- Restrict TUN/TProxy capabilities, routes and firewall changes to the smallest
+  required scope. Do not run the entire service privileged when only a helper
+  or isolated environment needs network administration.
+- Keep the release binary, feature manifest and Cronet library from the same
+  archive and verify the published checksum. Do not mix libraries between
+  versions or architectures.
+- Pin and review the complete native config. Unknown fields and newer schema
+  fields are rejected rather than silently ignored by the validated version.
+- Verify a negative request never reaches the target. Authentication, prefix
+  chain, router and DNS errors are designed to fail closed with no
+  system-direct retry.
+
 ## Performance and trade-offs
 
 There is no single meaningful "sing-box overhead percentage": Internet RTT,
@@ -658,13 +776,12 @@ packet sizes normally dominate. The integration-specific costs are narrower:
   returns the native sing-box connection with lifecycle and runtime-lease
   wrappers; Gust then performs its usual service copy. After connection setup,
   the wrappers do not copy each TCP payload.
-- Each routed connection creates/acquires a lightweight selected-tag handle.
-  The expensive `box.Box` is shared when the canonical key matches, but schema
-  decode/canonicalization, hashing, locks and reference accounting still occur.
-  On an Apple M4 with Go 1.26.3, five local runs of
-  `BenchmarkRuntimePoolHandle` measured 13.3–13.6 microseconds/op, about
-  22.5 KiB/op and 341 allocations/op. This is a diagnostic microbenchmark, not
-  a promise for other machines or a measurement of a proxy protocol.
+- An outbound without a preceding GOST prefix route uses the runtime acquired
+  when its Transport starts. A non-Direct embedded outbound after a GOST prefix
+  route acquires a route-scoped selected-tag handle for the request. Canonical
+  identity lets matching requests share the expensive Box, but that scoped
+  acquisition still decodes/canonicalizes the stored config, hashes it and
+  performs pool/reference accounting. It is connection work, not packet work.
 - The connected UDP adapter currently allocates a temporary
   `len(application buffer) + 512` byte buffer on each `Read`. The extra headroom
   prevents SOCKS-style address headers from truncating the datagram before
@@ -687,21 +804,39 @@ Practical advantages are one process, no IPC or hidden listener, full selected
 node dependency graphs, composition with existing Gust nodes, fail-closed
 prefix chaining, remote UDP domain preservation and safe reload leases. The
 main costs and limits are a larger singbox binary and runtime memory footprint,
-the per-connection handle work above, current outbound UDP read allocation, a
+route-scoped outbound handle work, current outbound UDP read allocation, a
 pinned schema/feature set, platform-specific features, and one Box per native
 listener. Use the standard flavor when none of the embedded protocols is
-needed.
+needed. Put a frequently used embedded node before unnecessary GOST prefix
+nodes when both chain orders are semantically valid; never reorder hops merely
+for a microbenchmark.
 
-The architecture is designed for a short data path, but that is not itself a
-performance result. Release performance certification compares the same pinned
-official sing-box version on a fixed runner and records raw samples. The target
-gates are at least 90% of official TCP throughput, at least 90% of official UDP
-PPS, explicit p95/p99 latency limits, and resource baselines for 1/2/10/50
-inbound Boxes. The stricter preferred TCP regression budget is 5%; results
-between 5% and 10% require explanation, while worse than 10% fails. Reload
-also checks switch pause and eventual release of old Boxes, connections,
-timers and goroutines. Until those measurements are attached to a release,
-describe the integration as performance-oriented, not proven high performance.
+The `singbox-v3.2.11` release has fixed-runner evidence against the same
+official sing-box v1.13.16 direct inbound. Five raw samples are included in
+`SINGBOX-PERFORMANCE-BASELINE.json`:
+
+| Controlled comparison | Gust / official or measured result | Release gate |
+|---|---:|---:|
+| TCP throughput median | 100.01% | at least 90% |
+| UDP PPS median | 99.78% | at least 90% |
+| TCP round-trip p95 / p99 | 100.50% / 100.79% | at most 110% |
+| UDP round-trip p95 / p99 | 99.44% / 99.73% | at most 110% |
+| `__gust_egress` UDP write | 151.4 ns/op, 96 B, 2 allocs | at most 128 B and 2 allocs |
+| Fixed-port reload p95 | 3.79 ms | at most 5 ms |
+
+The one-Box-per-`-L` resource baseline measured 8 goroutines and 4 file
+descriptors per live Box. Median startup was 5.04 ms for one Box, 32.70 ms for
+10 and 220.15 ms for 50; median live heap delta was about 0.31, 3.04 and
+15.20 MB respectively. All 20 fresh-process samples returned goroutine and FD
+counts exactly to baseline after Close.
+
+These results prove the direct inbound-to-GOST integration boundary meets its
+declared fixed-runner gates. They do not claim that every encrypted protocol,
+provider, WAN route or arbitrary shared host has the same ratio. A 2026-08-08
+health sample illustrates the distinction: the identical binary reloaded in
+2.58–3.23 ms on two shared hosts and 12.81 ms on another. Keep fixed hardware,
+Go version, feature tags, GOMAXPROCS and workload for a release comparison;
+record environmental outliers instead of averaging them into a product claim.
 
 For reproducible local diagnostics, limit the TCP dial iteration count on
 systems with a small ephemeral-port range:
@@ -710,6 +845,12 @@ systems with a small ephemeral-port range:
 tags="$(bash ../gust/.github/scripts/singbox-tags.sh)"
 go test -tags "$tags" ./backend/singbox -run '^$' \
   -bench 'Benchmark(TCP|RuntimePool)' -benchmem -benchtime=500x
+
+# The differential boundary test must use the same binary and host for both
+# official and Gust sub-benchmarks.
+GOMAXPROCS=2 go test -tags "$tags" ./backend/singbox -run '^$' \
+  -bench '^(BenchmarkInboundTCPThroughput|BenchmarkInboundUDPPPS|BenchmarkEgressUDPPacket|BenchmarkInboundReloadSamePort)$' \
+  -benchmem -benchtime=2s -count=5
 ```
 
 Loopback throughput results are kernel-buffer microbenchmarks. They can detect
