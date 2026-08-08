@@ -294,14 +294,21 @@ func runGostContainer(ctx context.Context, networkName, yamlPath string, aliases
 			},
 		},
 		ExposedPorts: exposedPorts,
-		// internal check for udp ports will be failed
-		WaitingFor: wait.ForExposedPort().SkipInternalCheck(),
-		Networks:   []string{networkName},
+		Networks:     []string{networkName},
 		NetworkAliases: map[string][]string{
 			networkName: aliases,
 		},
 		Files: files,
 		Cmd:   []string{"/bin/gost", "-C", "/config.yaml"},
+	}
+	if len(exposedPorts) == 0 {
+		// Some network-only tests intentionally do not publish a host port.
+		// Waiting for an unspecified exposed port always consumes the full
+		// default timeout even though Gust is already listening.
+		req.WaitingFor = wait.ForLog("listening on")
+	} else {
+		// Internal checks for UDP-only ports fail even when the socket is ready.
+		req.WaitingFor = wait.ForExposedPort().SkipInternalCheck()
 	}
 
 	return testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

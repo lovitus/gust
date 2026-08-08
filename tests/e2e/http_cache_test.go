@@ -15,9 +15,9 @@ import (
 
 type HTTPCacheSuite struct {
 	suite.Suite
-	ctx     context.Context
-	beC     testcontainers.Container
-	staleC  testcontainers.Container
+	ctx    context.Context
+	beC    testcontainers.Container
+	staleC testcontainers.Container
 }
 
 func (s *HTTPCacheSuite) SetupSuite() {
@@ -53,7 +53,9 @@ func (s *HTTPCacheSuite) TestHTTPCacheHit() {
 	s.Require().NoError(err)
 	defer gostC.Terminate(s.ctx)
 
-	cmd := []string{"curl", "-v", "-s", "http://127.0.0.1:8080/"}
+	// Keep stderr out of the Docker multiplexed exec stream. Verbose curl
+	// output has nondeterministic frame boundaries and is not response data.
+	cmd := []string{"curl", "-sS", "http://127.0.0.1:8080/"}
 
 	// First request — cache miss, backend returns "cache-test-1"
 	code, out, err := gostC.Exec(s.ctx, cmd)
@@ -100,7 +102,7 @@ func (s *HTTPCacheSuite) TestHTTPCacheDisabled() {
 	s.Require().NoError(err)
 	defer gostC.Terminate(s.ctx)
 
-	cmd := []string{"curl", "-v", "-s", "http://127.0.0.1:8080/"}
+	cmd := []string{"curl", "-sS", "http://127.0.0.1:8080/"}
 
 	code, out, err := gostC.Exec(s.ctx, cmd)
 	s.Require().NoError(err)
@@ -146,7 +148,7 @@ func (s *HTTPCacheSuite) TestHTTPCacheServeStale() {
 	s.Require().NoError(err)
 	defer gostC.Terminate(s.ctx)
 
-	cmd := []string{"curl", "-v", "-s", "http://127.0.0.1:8080/"}
+	cmd := []string{"curl", "-sS", "http://127.0.0.1:8080/"}
 
 	// First request — cache miss, backend returns "cache-test-1"
 	code, out, err := gostC.Exec(s.ctx, cmd)

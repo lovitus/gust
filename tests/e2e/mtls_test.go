@@ -142,9 +142,9 @@ func (s *MTLSSuite) TestMTLSProxy() {
 
 	// Verify proxy works with valid client cert
 	cmd := []string{"curl", "-v", "-s", "--connect-timeout", "5",
-		"--cacert", "/certs/ca.pem",
-		"--cert", "/certs/client.pem",
-		"--key", "/certs/client-key.pem",
+		"--proxy-cacert", "/certs/ca.pem",
+		"--proxy-cert", "/certs/client.pem",
+		"--proxy-key", "/certs/client-key.pem",
 		"-x", "https://127.0.0.1:8443",
 		fmt.Sprintf("http://%s:5678", s.echoIP)}
 	code, out, err := gostC.Exec(s.ctx, cmd)
@@ -181,7 +181,7 @@ func (s *MTLSSuite) TestMTLSWithoutClientCert() {
 
 	// curl without client cert should fail TLS handshake
 	cmd := []string{"curl", "-v", "-s", "--connect-timeout", "5",
-		"--cacert", "/certs/ca.pem",
+		"--proxy-cacert", "/certs/ca.pem",
 		"-x", "https://127.0.0.1:8443",
 		fmt.Sprintf("http://%s:5678", s.echoIP)}
 	code, _, err := gostC.Exec(s.ctx, cmd)
@@ -215,9 +215,9 @@ func (s *MTLSSuite) TestMTLSAuthPluginLogs() {
 
 	// Send a request with valid client cert through the mTLS proxy.
 	cmd := []string{"curl", "-v", "-s", "--connect-timeout", "5",
-		"--cacert", "/certs/ca.pem",
-		"--cert", "/certs/client.pem",
-		"--key", "/certs/client-key.pem",
+		"--proxy-cacert", "/certs/ca.pem",
+		"--proxy-cert", "/certs/client.pem",
+		"--proxy-key", "/certs/client-key.pem",
 		"-x", "https://127.0.0.1:8443",
 		fmt.Sprintf("http://%s:5678", s.echoIP)}
 	code, out, err := gostC.Exec(s.ctx, cmd)
