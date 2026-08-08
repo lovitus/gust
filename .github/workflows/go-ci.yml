@@ -111,13 +111,22 @@ jobs:
         # These suites also fail on unmodified go-gost/gost master at
         # c7d793c619e3690f091dd98ac9b4085e212db26f in the same environment.
         shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
         run: |
           set -euo pipefail
+          test_args=()
+          if [[ "${TARGET_BRANCH}" == "qtui-route-manage" ]]; then
+            # Compile Fyne against its headless CI driver; native desktop
+            # builds are covered by the dedicated QtUI release workflow.
+            test_args+=("-tags=ci")
+          fi
           packages=()
           while IFS= read -r package; do
             [[ "${package}" == */tests/e2e ]] || packages+=("${package}")
           done < <(go list ./...)
           go test \
+            "${test_args[@]}" \
             -timeout 25m \
             -skip '^(TestFileSuite|TestHTTPCacheSuite|TestMTLSSuite|TestSniffingSuite)$' \
             "${packages[@]}"
