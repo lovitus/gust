@@ -15,9 +15,9 @@ import (
 
 type HTTPCacheSuite struct {
 	suite.Suite
-	ctx     context.Context
-	beC     testcontainers.Container
-	staleC  testcontainers.Container
+	ctx    context.Context
+	beC    testcontainers.Container
+	staleC testcontainers.Container
 }
 
 func (s *HTTPCacheSuite) SetupSuite() {
@@ -46,16 +46,20 @@ func (s *HTTPCacheSuite) TearDownSuite() {
 // TestHTTPCacheHit verifies that the HTTP response cache returns the cached
 // response on repeat requests. The test backend returns a monotonically
 // increasing counter. With cache enabled, every request returns the same
-// counter value (the cached response from the first request).
+// counter value (the cached response from the first request). The backend is
+// shared with the disabled-cache control, so the absolute first value is not
+// assumed.
 func (s *HTTPCacheSuite) TestHTTPCacheHit() {
 	gostC, err := RunGostContainerWithPorts(s.ctx, SharedNetworkName,
 		"testdata/http_cache/server_cache.yaml", "8080/tcp")
 	s.Require().NoError(err)
 	defer gostC.Terminate(s.ctx)
 
-	cmd := []string{"curl", "-v", "-s", "http://127.0.0.1:8080/"}
+	// Keep stderr out of the Docker multiplexed exec stream. Verbose curl
+	// output has nondeterministic frame boundaries and is not response data.
+	cmd := []string{"curl", "-sS", "http://127.0.0.1:8080/"}
 
-	// First request — cache miss, backend returns "cache-test-1"
+	// First request — cache miss, backend returns its current counter.
 	code, out, err := gostC.Exec(s.ctx, cmd)
 	s.Require().NoError(err)
 	body1, _ := io.ReadAll(out)
@@ -63,8 +67,8 @@ func (s *HTTPCacheSuite) TestHTTPCacheHit() {
 		DumpLogs(s.T(), s.ctx, "cache-proxy logs (first req)", gostC)
 	}
 	s.Require().Equal(0, code, "first request should succeed")
-	s.Require().Contains(string(body1), "cache-test-1",
-		"first request should get backend response #1")
+	s.Require().Contains(string(body1), "cache-test-",
+		"first request should get a backend counter response")
 
 	// Second request — cache hit, same response
 	code, out, err = gostC.Exec(s.ctx, cmd)
@@ -100,7 +104,7 @@ func (s *HTTPCacheSuite) TestHTTPCacheDisabled() {
 	s.Require().NoError(err)
 	defer gostC.Terminate(s.ctx)
 
-	cmd := []string{"curl", "-v", "-s", "http://127.0.0.1:8080/"}
+	cmd := []string{"curl", "-sS", "http://127.0.0.1:8080/"}
 
 	code, out, err := gostC.Exec(s.ctx, cmd)
 	s.Require().NoError(err)
@@ -146,7 +150,7 @@ func (s *HTTPCacheSuite) TestHTTPCacheServeStale() {
 	s.Require().NoError(err)
 	defer gostC.Terminate(s.ctx)
 
-	cmd := []string{"curl", "-v", "-s", "http://127.0.0.1:8080/"}
+	cmd := []string{"curl", "-sS", "http://127.0.0.1:8080/"}
 
 	// First request — cache miss, backend returns "cache-test-1"
 	code, out, err := gostC.Exec(s.ctx, cmd)

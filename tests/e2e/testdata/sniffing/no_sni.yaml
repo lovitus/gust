@@ -7,3 +7,5 @@ services:
         sniffing: true
     listener:
       type: tcp
+log:
+  level: debug

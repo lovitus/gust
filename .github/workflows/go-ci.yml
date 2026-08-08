@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - master
+      - qtui-route-manage
     paths-ignore:
       - 'Formula/**'
       - 'bucket/**'
   pull_request:
     branches:
       - master
+      - qtui-route-manage
   workflow_dispatch:
     inputs:
       gust_x_ref:
@@ -121,9 +123,21 @@ jobs:
             "${packages[@]}"
 
   e2e:
-    name: Docker end-to-end tests
+    name: Docker E2E / ${{ matrix.suite }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: protocol-matrix
+            tests: '^(TestCoreProxyAuthenticationMatrix|TestCoreProxyProtocolMatrix|TestSOCKS5UDPAssociation|TestStreamTransportMatrix|TestUDPBackedStreamTransportMatrix)$'
+          - suite: policy-routing
+            tests: '^(TestAdmissionSuite|TestAuthSuite|TestBypassSuite|TestChainGroupSuite|TestFailCodesSuite|TestHostsSuite|TestIngressSuite|TestProbeSuite|TestResolverSuite|TestRoutingSuite|TestSelectorSuite)$'
+          - suite: http-tls
+            tests: '^(TestFileSuite|TestForwardSuite|TestHTTP2Suite|TestHTTPCacheSuite|TestHTTPSuite|TestMTLSSuite|TestPHTSuite|TestSniffingSuite|TestTLSSuite|TestUTLSSuite)$'
+          - suite: dns-shadowsocks
+            tests: '^(TestDNSSuite|TestShadowsocksSuite)$'
     env:
       GO_VERSION: 1.26.5
     steps:
@@ -170,7 +184,13 @@ jobs:
         run: bash .github/scripts/check_branch_policy.sh "${TARGET_BRANCH}" ../gust-x
 
       - name: Run bounded Docker E2E suite
-        run: go test -count=1 -v -timeout 30m ./tests/e2e
+        env:
+          E2E_TESTS: ${{ matrix.tests }}
+        run: >-
+          timeout --signal=TERM --kill-after=30s 20m
+          go test -count=1 -v -timeout 18m
+          -run "${E2E_TESTS}"
+          ./tests/e2e
 
       - name: Capture Docker state after failure
         if: ${{ failure() }}
