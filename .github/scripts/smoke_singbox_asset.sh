@@ -9,7 +9,7 @@ fi
 asset_root="$(cd "${asset_root}" && pwd)"
 
 binary="${asset_root}/gust-with-singbox"
-if [[ "$(go env GOOS)" == windows ]]; then
+if [[ ! -f "${binary}" && -f "${binary}.exe" ]]; then
   binary="${binary}.exe"
 fi
 if [[ ! -f "${binary}" ]]; then
