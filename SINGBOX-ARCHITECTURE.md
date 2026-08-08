@@ -85,7 +85,8 @@ while explicit native route rules retain priority.
 
 `-singboxcheck` parses and validates this effective static configuration
 without startup. It prints structure only. `-O` prints the complete effective
-configuration and must be treated as secret-bearing.
+configuration and must be treated as secret-bearing. Parsing still reads the
+declared sources, including fetching an explicitly supplied remote config URL.
 
 ## TCP, UDP and failure behavior
 

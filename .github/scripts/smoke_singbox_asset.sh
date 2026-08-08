@@ -27,7 +27,14 @@ grep -F '## Mixed CLI and JSON configuration' "${asset_root}/smoke-singbox-manua
 test -f "${asset_root}/SINGBOX-MANUAL.md"
 test -f "${asset_root}/SINGBOX-VALIDATION.md"
 test -f "${asset_root}/SINGBOX-PERFORMANCE-BASELINE.json"
+test -f "${asset_root}/SINGBOX-ARCHITECTURE.md"
+test -f "${asset_root}/examples/singbox/README.md"
 python3 -m json.tool "${asset_root}/SINGBOX-PERFORMANCE-BASELINE.json" >/dev/null
+preflight="$("${binary}" -singboxcheck \
+  -L 'socks5://127.0.0.1:1080?udp=true' \
+  -F "singbox://?json=${asset_root}/examples/singbox/shadowsocks-uot-mux-outbound.json")"
+grep -F 'sing-box configuration OK' <<<"${preflight}"
+grep -F 'startup not attempted' <<<"${preflight}"
 
 echo_log="${RUNNER_TEMP:-/tmp}/singbox-echo.log"
 gust_log="${RUNNER_TEMP:-/tmp}/singbox-direct.log"

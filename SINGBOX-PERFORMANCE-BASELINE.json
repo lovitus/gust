@@ -4,9 +4,9 @@
   "date": "2026-08-07",
   "scope": "embedded sing-box native inbound direct-path baseline",
   "source": {
-    "gust_x_revision": "713e879c97dba1ea0976e63b709030954ccacd74",
+    "gust_x_revision": "1b367c99607ec788540518ab8d9abfd5b2307b44",
     "sing_box_version": "v1.13.16",
-    "test_binary_sha256": "073322cc32821a003be947df64346dfdeeb359d9ff9288be37355726ff9b0a6c",
+    "test_binary_sha256": "9bf69c9553e6ae0a6e122c1e6f3664571efd2a25b20887dbf4b74f21cc2de44f",
     "go_version": "go1.26.5",
     "build_tags": "with_singbox,with_singbox_full,with_gvisor,with_quic,with_dhcp,with_wireguard,with_utls,with_naive_outbound,with_purego,with_acme,with_clash_api,with_tailscale,with_ccm,with_ocm",
     "cgo_enabled": false
@@ -34,49 +34,81 @@
   "benchmarks": {
     "tcp": {
       "official": {
-        "ns_per_op": [93845, 94314, 94395, 94296, 94051],
-        "mb_per_second": [698.34, 694.87, 694.28, 695.00, 696.81],
+        "ns_per_op": [94693, 93852, 95169, 94121, 94197],
+        "mb_per_second": [692.09, 698.29, 688.63, 696.30, 695.73],
         "bytes_per_op": [0, 0, 0, 0, 0],
         "allocs_per_op": [0, 0, 0, 0, 0]
       },
       "gust": {
-        "ns_per_op": [94284, 94173, 93257, 94288, 94704],
-        "mb_per_second": [695.09, 695.91, 702.74, 695.06, 692.01],
+        "ns_per_op": [93786, 94327, 94600, 94117, 94263],
+        "mb_per_second": [698.79, 694.78, 692.77, 696.32, 695.25],
         "bytes_per_op": [0, 0, 0, 0, 0],
         "allocs_per_op": [0, 0, 0, 0, 0]
       },
-      "median_throughput_ratio": 1.0001,
-      "p95_latency_ratio": 1.0033,
+      "median_throughput_ratio": 0.9993,
+      "p95_latency_ratio": 0.9940,
       "result": "pass"
     },
     "udp": {
       "official": {
-        "ns_per_op": [91974, 90112, 90459, 92391, 93166],
-        "bytes_per_op": [532, 531, 531, 532, 531],
+        "ns_per_op": [92547, 91395, 92354, 93590, 91986],
+        "bytes_per_op": [532, 532, 531, 532, 531],
         "allocs_per_op": [12, 12, 12, 12, 12]
       },
       "gust": {
-        "ns_per_op": [93533, 92870, 92139, 91780, 92176],
+        "ns_per_op": [91896, 91836, 89759, 90733, 92344],
         "bytes_per_op": [492, 491, 491, 491, 491],
         "allocs_per_op": [10, 10, 10, 10, 10]
       },
-      "median_pps_ratio": 0.9978,
-      "p95_latency_ratio": 1.0039,
+      "median_pps_ratio": 1.0056,
+      "p95_latency_ratio": 0.9867,
       "result": "pass"
     },
     "egress_udp_write": {
-      "ns_per_op": [151.4, 151.0, 151.7, 151.2, 152.0],
+      "ns_per_op": [151.8, 151.6, 150.7, 151.1, 152.2],
       "bytes_per_op": [96, 96, 96, 96, 96],
       "allocs_per_op": [2, 2, 2, 2, 2],
       "payload_scaled_allocation": false,
       "result": "pass"
     },
     "fixed_port_reload": {
-      "ns_per_op": [3754800, 3761936, 3789917, 3752443, 3763371],
-      "bytes_per_op": [681550, 681531, 681715, 681756, 681544],
-      "allocs_per_op": [2427, 2427, 2427, 2426, 2427],
-      "median_pause_ns": 3761936,
-      "p95_pause_ns": 3789917,
+      "ns_per_op": [3760104, 3768030, 3769590, 3781493, 3776252],
+      "bytes_per_op": [681555, 681246, 681380, 681257, 681212],
+      "allocs_per_op": [2426, 2426, 2426, 2426, 2426],
+      "median_pause_ns": 3769590,
+      "p95_pause_ns": 3781493,
+      "result": "pass"
+    },
+    "runtime_handle": {
+      "decode_and_construct": {
+        "ns_per_op": [67113, 66955, 66830, 66631, 66692],
+        "bytes_per_op": [22446, 22445, 22445, 22445, 22446],
+        "allocs_per_op": [341, 341, 341, 341, 341]
+      },
+      "retained": {
+        "ns_per_op": [221.5, 220.9, 221.8, 220.7, 221.4],
+        "bytes_per_op": [80, 80, 80, 80, 80],
+        "allocs_per_op": [1, 1, 1, 1, 1]
+      },
+      "scoped_cache_hit": {
+        "ns_per_op": [256.9, 256.7, 258.8, 257.0, 257.9],
+        "bytes_per_op": [80, 80, 80, 80, 80],
+        "allocs_per_op": [1, 1, 1, 1, 1]
+      },
+      "result": "pass"
+    },
+    "packet_read": {
+      "direct": {
+        "ns_per_op": [29.86, 29.96, 29.94, 29.91, 29.79],
+        "bytes_per_op": [0, 0, 0, 0, 0],
+        "allocs_per_op": [0, 0, 0, 0, 0]
+      },
+      "proxy_headroom": {
+        "ns_per_op": [135.8, 135.7, 139.3, 135.8, 135.7],
+        "bytes_per_op": [24, 24, 24, 24, 24],
+        "allocs_per_op": [1, 1, 1, 1, 1]
+      },
+      "payload_scaled_allocation": false,
       "result": "pass"
     }
   },
@@ -86,73 +118,73 @@
     "method": "official and Gust operations interleaved against the same controlled loopback echo target",
     "tcp": {
       "official": {
-        "p50_ns": [97137, 97732, 94954, 95375, 97715],
-        "p95_ns": [106236, 106932, 104113, 104924, 108367],
-        "p99_ns": [114878, 116068, 112712, 117627, 119174]
+        "p50_ns": [95923, 97496, 97959, 98146, 97881],
+        "p95_ns": [105571, 107096, 107142, 108241, 107052],
+        "p99_ns": [115476, 117924, 109965, 133191, 133160]
       },
       "gust": {
-        "p50_ns": [97594, 97842, 94692, 95234, 97696],
-        "p95_ns": [106765, 107071, 103839, 105044, 108563],
-        "p99_ns": [119603, 115303, 114273, 116983, 118289]
+        "p50_ns": [96069, 97840, 97972, 98202, 97986],
+        "p95_ns": [105636, 107373, 107081, 108137, 107265],
+        "p99_ns": [111964, 124544, 113309, 123922, 130500]
       },
-      "median_p95_ratio": 1.0050,
-      "median_p99_ratio": 1.0079,
+      "median_p95_ratio": 1.0016,
+      "median_p99_ratio": 1.0509,
       "result": "pass"
     },
     "udp": {
       "official": {
-        "p50_ns": [94251, 93954, 94205, 94921, 94880],
-        "p95_ns": [106773, 107740, 104540, 106675, 105916],
-        "p99_ns": [120273, 128088, 112905, 117496, 119219]
+        "p50_ns": [96039, 96041, 95163, 95958, 95632],
+        "p95_ns": [127820, 107819, 107093, 106875, 108029],
+        "p99_ns": [142827, 120277, 123213, 118790, 129140]
       },
       "gust": {
-        "p50_ns": [94536, 94020, 94148, 94789, 95446],
-        "p95_ns": [106076, 108246, 104660, 106789, 105701],
-        "p99_ns": [118899, 126306, 114239, 119670, 117642]
+        "p50_ns": [96328, 96098, 95380, 96366, 96144],
+        "p95_ns": [129859, 108228, 107714, 107398, 109072],
+        "p99_ns": [142413, 117320, 118506, 117392, 130050]
       },
-      "median_p95_ratio": 0.9944,
-      "median_p99_ratio": 0.9973,
+      "median_p95_ratio": 1.0038,
+      "median_p99_ratio": 0.9618,
       "result": "pass"
     }
   },
   "resources": {
     "1": {
-      "startup_ns": [5044429, 4801003, 5018493, 5115841, 5297704],
-      "heap_live_delta_bytes": [305576, 342632, 305224, 305416, 305160],
+      "startup_ns": [5357993, 5111592, 5270270, 4897103, 4968696],
+      "heap_live_delta_bytes": [343032, 342712, 305048, 304728, 305192],
       "goroutine_live_delta": [8, 8, 8, 8, 8],
       "fd_live_delta": [4, 4, 4, 4, 4],
-      "max_rss_bytes": [19218432, 19546112, 19668992, 19701760, 19537920],
-      "heap_after_close_delta_bytes": [15072, 51904, 14640, 14640, 14592],
+      "max_rss_bytes": [19361792, 19419136, 19292160, 19566592, 19329024],
+      "heap_after_close_delta_bytes": [52304, 52144, 14320, 14160, 14592],
       "goroutine_after_close_delta": [0, 0, 0, 0, 0],
       "fd_after_close_delta": [0, 0, 0, 0, 0]
     },
     "2": {
-      "startup_ns": [8470508, 7919451, 8367116, 7924136, 8107987],
-      "heap_live_delta_bytes": [608864, 647056, 646128, 609344, 646672],
+      "startup_ns": [8626345, 8060547, 7890909, 7956691, 8199256],
+      "heap_live_delta_bytes": [609712, 609936, 609584, 608960, 646176],
       "goroutine_live_delta": [16, 16, 16, 16, 16],
       "fd_live_delta": [8, 8, 8, 8, 8],
-      "max_rss_bytes": [19910656, 20459520, 20135936, 20262912, 20299776],
-      "heap_after_close_delta_bytes": [18832, 56976, 56272, 19424, 56592],
+      "max_rss_bytes": [20508672, 20131840, 19976192, 20242432, 20013056],
+      "heap_after_close_delta_bytes": [19808, 20064, 19472, 19056, 56064],
       "goroutine_after_close_delta": [0, 0, 0, 0, 0],
       "fd_after_close_delta": [0, 0, 0, 0, 0]
     },
     "10": {
-      "startup_ns": [34527983, 32619668, 32696464, 32803054, 32571196],
-      "heap_live_delta_bytes": [3041936, 3042112, 3041440, 3041552, 3042048],
+      "startup_ns": [32868026, 32952606, 33421143, 35122828, 33955827],
+      "heap_live_delta_bytes": [3041664, 3042576, 3079776, 3079424, 3078624],
       "goroutine_live_delta": [80, 80, 80, 80, 80],
       "fd_live_delta": [40, 40, 40, 40, 40],
-      "max_rss_bytes": [24395776, 23732224, 23879680, 24080384, 23941120],
-      "heap_after_close_delta_bytes": [57472, 57408, 56976, 57040, 57584],
+      "max_rss_bytes": [23429120, 23670784, 24072192, 23814144, 23838720],
+      "heap_after_close_delta_bytes": [57152, 57872, 95264, 94912, 94112],
       "goroutine_after_close_delta": [0, 0, 0, 0, 0],
       "fd_after_close_delta": [0, 0, 0, 0, 0]
     },
     "50": {
-      "startup_ns": [215532642, 221340044, 220702491, 218041633, 220145812],
-      "heap_live_delta_bytes": [15203216, 15203936, 15203392, 15240144, 15203296],
+      "startup_ns": [218125973, 215197906, 216809171, 218101592, 219957306],
+      "heap_live_delta_bytes": [15204464, 15202992, 15241376, 15203952, 15203824],
       "goroutine_live_delta": [400, 400, 400, 400, 400],
       "fd_live_delta": [200, 200, 200, 200, 200],
-      "max_rss_bytes": [41369600, 41603072, 41582592, 41451520, 42901504],
-      "heap_after_close_delta_bytes": [217136, 217824, 217360, 261088, 224192],
+      "max_rss_bytes": [41508864, 40636416, 41385984, 40550400, 41123840],
+      "heap_after_close_delta_bytes": [218336, 223952, 262464, 217872, 217744],
       "goroutine_after_close_delta": [0, 0, 0, 0, 0],
       "fd_after_close_delta": [0, 0, 0, 0, 0]
     }
@@ -166,6 +198,13 @@
     "accepted_baseline_p95_p99_regression_max": 0.1,
     "resource_median_regression_max": 0.05,
     "fixed_port_reload_p95_ns_max": 5000000,
+    "retained_runtime_median_ratio_max": 0.01,
+    "retained_runtime_bytes_max": 96,
+    "retained_runtime_allocs_max": 1,
+    "packet_read_direct_bytes_max": 0,
+    "packet_read_direct_allocs_max": 0,
+    "packet_read_proxy_bytes_max": 64,
+    "packet_read_proxy_allocs_max": 1,
     "goroutine_or_fd_after_close_delta_max": 0
   },
   "notes": [

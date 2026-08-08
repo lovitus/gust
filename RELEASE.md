@@ -108,7 +108,8 @@ default download and package-manager source.
 - Darwin amd64/arm64: reproducible limited build without Naive or CCM.
 
 Each archive includes `feature-manifest.json`, `SINGBOX-MANUAL.md`,
-`SINGBOX-VALIDATION.md`, GPLv3, sing-box notices and the exact Gust/gust-x
+`SINGBOX-ARCHITECTURE.md`, `SINGBOX-VALIDATION.md`, the tested
+`examples/singbox` templates, GPLv3, sing-box notices and the exact Gust/gust-x
 source revisions. The release also publishes `checksums.txt`.
 
 ## Standard releases

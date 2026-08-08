@@ -28,6 +28,24 @@ class PerformanceBaselineTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "does not match pin"):
                 validate(candidate, self.ref)
 
+    def test_runtime_allocation_regression_fails(self):
+        data = json.loads(self.baseline.read_text(encoding="utf-8"))
+        data["benchmarks"]["runtime_handle"]["retained"]["allocs_per_op"] = [2] * 5
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / "baseline.json"
+            candidate.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "retained runtime allocation budget"):
+                validate(candidate, self.ref)
+
+    def test_packet_read_allocation_regression_fails(self):
+        data = json.loads(self.baseline.read_text(encoding="utf-8"))
+        data["benchmarks"]["packet_read"]["proxy_headroom"]["bytes_per_op"] = [65] * 5
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / "baseline.json"
+            candidate.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "proxy packet read byte budget"):
+                validate(candidate, self.ref)
+
 
 if __name__ == "__main__":
     unittest.main()

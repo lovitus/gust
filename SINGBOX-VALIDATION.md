@@ -5,9 +5,9 @@
   build-only release rehearsal pass.
 - Validation date: 2026-08-08
 - Gust branch: `singbox-backend`
-- Certified release: `singbox-v3.2.11`
+- Certified release: `singbox-v3.2.12`
 - Certified Gust revision: `4f5f035f01e8fa16064c7db55c0a352e363cbc33`
-- gust-x revision: `713e879c97dba1ea0976e63b709030954ccacd74`
+- gust-x revision: `1b367c99607ec788540518ab8d9abfd5b2307b44`
 - Pinned sing-box: `v1.13.16`
 - Certification toolchain: `go1.26.5`
 
@@ -76,6 +76,7 @@ in both directions. Direction-specific native schemas remain separate.
 | Mixed config + CLI override | PASS | PASS |
 | Standard flavor `-O json/yaml` | PASS | PASS |
 | Native canonical validation | PASS | PASS |
+| Safe `-singboxcheck` without startup or value output | PASS | PASS |
 | Secret-redacted errors | PASS | PASS |
 
 Readable inline JSON and files are the documented inputs. Base64 controls are
@@ -205,6 +206,7 @@ gain UDP support from the adapter.
 | Native type may own an unknown socket/system resource | Activation manifest rejects it | Generated-manifest tests |
 | Port is zero, occupied or replacement cannot bind | Failure is reported; the old service is retained when possible | Lifecycle tests |
 | Caller cancels or closes an active route | Dial/copy stops and leases are released | Cancellation and forced-close tests |
+| Static preflight output exposes a config value | Output is structure-only and startup is not attempted | CLI example/preflight tests |
 | Published docs contain a real IP/domain/likely credential | CI rejects the documentation | Documentation privacy checker |
 
 Configuration output from `-O`, debug logs and copied provider JSON can still
@@ -226,6 +228,9 @@ general secret manager.
 | Fixed port conflict | PASS |
 | Cancel, deadline and forced close | PASS |
 | Runtime-pool singleflight/reference ownership | PASS |
+| Retained selected-tag handle avoids per-connection decode/Box construction | PASS |
+| Route-scope cache concurrent acquire/close under race detector | PASS |
+| Direct/proxy UDP read allocation budgets | PASS |
 | Gust-owned lifecycle/config surface under race detector | PASS |
 | URI lexer fuzzing | PASS |
 | CI test, cross-build and native-smoke matrices schedule independently | PASS |
@@ -248,21 +253,24 @@ sing-box v1.13.16, full feature tags, CGO disabled, loopback MTU 65536.
 
 | Comparison | Official median | Gust median | Ratio | Gate | Result |
 |---|---:|---:|---:|---:|---:|
-| TCP throughput, 64 KiB echo | 695.00 MB/s | 695.09 MB/s | 100.01% | >=90% | PASS |
-| UDP PPS, 1200-byte echo | 10,873 PPS | 10,849 PPS | 99.78% | >=90% | PASS |
-| TCP round-trip p95 / p99 | 106.236 / 116.068 us | 106.765 / 116.983 us | 100.50% / 100.79% | <=110% | PASS |
-| UDP round-trip p95 / p99 | 106.675 / 119.219 us | 106.076 / 118.899 us | 99.44% / 99.73% | <=110% | PASS |
-| Internal egress UDP write | n/a | 151.4 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
-| Fixed-port reload pause | n/a | 3.76 ms median, 3.79 ms p95 | n/a | p95 <=5 ms | PASS |
+| TCP throughput, 64 KiB echo | 695.73 MB/s | 695.25 MB/s | 99.93% | >=90% | PASS |
+| UDP PPS, 1200-byte echo | 10,827 PPS | 10,889 PPS | 100.56% | >=90% | PASS |
+| TCP round-trip p95 / p99 | 107.096 / 117.924 us | 107.265 / 123.922 us | 100.16% / 105.09% | <=110% | PASS |
+| UDP round-trip p95 / p99 | 107.819 / 123.213 us | 108.228 / 118.506 us | 100.38% / 96.18% | <=110% | PASS |
+| Internal egress UDP write | n/a | 151.6 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
+| Retained runtime handle | 66.83 us decode/construct | 221.4 ns/op | 0.33%, 80 B, 1 alloc | <=1%, <=96 B, <=1 alloc | PASS |
+| Route-scope cache hit | n/a | 257.0 ns/op | 80 B, 1 alloc | <=96 B, <=1 alloc | PASS |
+| Direct / proxy packet read | n/a | 0 B/0 allocs; 24 B/1 alloc | no payload-scaled allocation | <=0/0; <=64 B/1 | PASS |
+| Fixed-port reload pause | n/a | 3.77 ms median, 3.78 ms p95 | n/a | p95 <=5 ms | PASS |
 
 Resource medians for the one-Box-per-`-L` baseline:
 
 | Boxes | Startup | Live heap delta | Goroutine delta | FD delta | Median max RSS |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 5.04 ms | 305,416 B | 8 | 4 | 19,546,112 B |
-| 2 | 8.11 ms | 646,128 B | 16 | 8 | 20,262,912 B |
-| 10 | 32.70 ms | 3,041,936 B | 80 | 40 | 23,941,120 B |
-| 50 | 220.15 ms | 15,203,392 B | 400 | 200 | 41,582,592 B |
+| 1 | 5.11 ms | 305,192 B | 8 | 4 | 19,361,792 B |
+| 2 | 8.06 ms | 609,712 B | 16 | 8 | 20,131,840 B |
+| 10 | 33.42 ms | 3,078,624 B | 80 | 40 | 23,814,144 B |
+| 50 | 218.10 ms | 15,203,952 B | 400 | 200 | 41,123,840 B |
 
 Every one of the 20 fresh-process resource samples returned goroutine and FD
 counts exactly to its pre-start baseline after Close. These numbers prove the

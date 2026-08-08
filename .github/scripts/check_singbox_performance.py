@@ -65,6 +65,43 @@ def validate(baseline_path: Path, ref_path: Path) -> dict[str, float]:
     if egress.get("payload_scaled_allocation") is not False:
         raise ValueError("egress UDP must explicitly record no payload-scaled allocation")
 
+    runtime_handle = baseline["benchmarks"]["runtime_handle"]
+    decode_ns = require_samples(
+        runtime_handle["decode_and_construct"]["ns_per_op"],
+        "decoded runtime handle latency",
+    )
+    retained = runtime_handle["retained"]
+    retained_ns = require_samples(retained["ns_per_op"], "retained runtime handle latency")
+    retained_bytes = require_samples(retained["bytes_per_op"], "retained runtime handle bytes")
+    retained_allocs = require_samples(retained["allocs_per_op"], "retained runtime handle allocations")
+    retained_ratio = statistics.median(retained_ns) / statistics.median(decode_ns)
+    if retained_ratio > gates["retained_runtime_median_ratio_max"]:
+        raise ValueError(f"retained runtime latency ratio {retained_ratio:.4f} failed")
+    if max(retained_bytes) > gates["retained_runtime_bytes_max"]:
+        raise ValueError("retained runtime byte budget failed")
+    if max(retained_allocs) > gates["retained_runtime_allocs_max"]:
+        raise ValueError("retained runtime allocation budget failed")
+
+    scoped = runtime_handle["scoped_cache_hit"]
+    if max(require_samples(scoped["bytes_per_op"], "scoped cache hit bytes")) > gates["retained_runtime_bytes_max"]:
+        raise ValueError("scoped runtime cache byte budget failed")
+    if max(require_samples(scoped["allocs_per_op"], "scoped cache hit allocations")) > gates["retained_runtime_allocs_max"]:
+        raise ValueError("scoped runtime cache allocation budget failed")
+
+    packet_read = baseline["benchmarks"]["packet_read"]
+    direct_read = packet_read["direct"]
+    proxy_read = packet_read["proxy_headroom"]
+    if max(require_samples(direct_read["bytes_per_op"], "direct packet read bytes")) > gates["packet_read_direct_bytes_max"]:
+        raise ValueError("direct packet read byte budget failed")
+    if max(require_samples(direct_read["allocs_per_op"], "direct packet read allocations")) > gates["packet_read_direct_allocs_max"]:
+        raise ValueError("direct packet read allocation budget failed")
+    if max(require_samples(proxy_read["bytes_per_op"], "proxy packet read bytes")) > gates["packet_read_proxy_bytes_max"]:
+        raise ValueError("proxy packet read byte budget failed")
+    if max(require_samples(proxy_read["allocs_per_op"], "proxy packet read allocations")) > gates["packet_read_proxy_allocs_max"]:
+        raise ValueError("proxy packet read allocation budget failed")
+    if packet_read.get("payload_scaled_allocation") is not False:
+        raise ValueError("packet read must explicitly record no payload-scaled allocation")
+
     reload_result = baseline["benchmarks"]["fixed_port_reload"]
     reload_ns = require_samples(reload_result["ns_per_op"], "fixed-port reload pause")
     if percentile(reload_ns, 0.95) > gates["fixed_port_reload_p95_ns_max"]:
@@ -114,6 +151,7 @@ def validate(baseline_path: Path, ref_path: Path) -> dict[str, float]:
         "tcp_p95_ratio": tcp_p95_ratio,
         "udp_pps_ratio": udp_pps_ratio,
         "udp_p95_ratio": udp_p95_ratio,
+        "retained_runtime_ratio": retained_ratio,
         **latency_ratios,
     }
 
@@ -136,6 +174,7 @@ def main() -> None:
         "sing-box performance baseline PASS: "
         f"TCP median={result['tcp_ratio']:.4f}, TCP p95={result['tcp_p95_ratio']:.4f}, "
         f"UDP PPS={result['udp_pps_ratio']:.4f}, UDP p95={result['udp_p95_ratio']:.4f}, "
+        f"retained runtime={result['retained_runtime_ratio']:.4f}, "
         f"round-trip p99 TCP={result['tcp_p99_ns_ratio']:.4f}, "
         f"UDP={result['udp_p99_ns_ratio']:.4f}"
     )

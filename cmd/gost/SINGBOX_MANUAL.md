@@ -712,7 +712,9 @@ gost -singboxcheck \
 It performs Gust parsing, merge/type handling and pinned native schema
 validation, then prints only build identity and object counts. It does not
 start sockets, TUN/TProxy, native services or background activity, and it does
-not print configuration values. This is a static check: DNS reachability,
+not print configuration values. Input sources still have to be read, so an
+explicit remote config URL is fetched during parsing. This is a static check:
+DNS reachability,
 certificates, credentials, port availability, privileges and data paths still
 require runtime acceptance tests. `-O` remains useful for inspecting the exact
 effective config, but its output is secret-bearing.
@@ -834,22 +836,25 @@ listener. Use the standard flavor when none of the embedded protocols is
 needed. Scope count is determined by configured route combinations rather than
 packet count; all cached anchors close with their owning Transport.
 
-The `singbox-v3.2.11` release has fixed-runner evidence against the same
+The `singbox-v3.2.12` release has fixed-runner evidence against the same
 official sing-box v1.13.16 direct inbound. Five raw samples are included in
 `SINGBOX-PERFORMANCE-BASELINE.json`:
 
 | Controlled comparison | Gust / official or measured result | Release gate |
 |---|---:|---:|
-| TCP throughput median | 100.01% | at least 90% |
-| UDP PPS median | 99.78% | at least 90% |
-| TCP round-trip p95 / p99 | 100.50% / 100.79% | at most 110% |
-| UDP round-trip p95 / p99 | 99.44% / 99.73% | at most 110% |
-| `__gust_egress` UDP write | 151.4 ns/op, 96 B, 2 allocs | at most 128 B and 2 allocs |
-| Fixed-port reload p95 | 3.79 ms | at most 5 ms |
+| TCP throughput median | 99.93% | at least 90% |
+| UDP PPS median | 100.56% | at least 90% |
+| TCP round-trip p95 / p99 | 100.16% / 105.09% | at most 110% |
+| UDP round-trip p95 / p99 | 100.38% / 96.18% | at most 110% |
+| `__gust_egress` UDP write | 151.6 ns/op, 96 B, 2 allocs | at most 128 B and 2 allocs |
+| Retained runtime handle | 221.4 ns/op, 80 B, 1 alloc | at most 1% of decode/construct median, 96 B and 1 alloc |
+| Route-scope cache hit | 257.0 ns/op, 80 B, 1 alloc | at most 96 B and 1 alloc |
+| Direct / proxy UDP read | 0 B, 0 allocs / 24 B, 1 alloc | at most 0/0 and 64 B/1 alloc |
+| Fixed-port reload p95 | 3.78 ms | at most 5 ms |
 
 The one-Box-per-`-L` resource baseline measured 8 goroutines and 4 file
-descriptors per live Box. Median startup was 5.04 ms for one Box, 32.70 ms for
-10 and 220.15 ms for 50; median live heap delta was about 0.31, 3.04 and
+descriptors per live Box. Median startup was 5.11 ms for one Box, 33.42 ms for
+10 and 218.10 ms for 50; median live heap delta was about 0.31, 3.08 and
 15.20 MB respectively. All 20 fresh-process samples returned goroutine and FD
 counts exactly to baseline after Close.
 
