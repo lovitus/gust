@@ -6,7 +6,7 @@
 - Validation date: 2026-08-08
 - Gust branch: `singbox-backend`
 - Certified release: `singbox-v3.2.12`
-- Certified Gust revision: `4f5f035f01e8fa16064c7db55c0a352e363cbc33`
+- Certified Gust revision: `f7f88dbba0679536e6103b467ade134c0c6882c9`
 - gust-x revision: `1b367c99607ec788540518ab8d9abfd5b2307b44`
 - Pinned sing-box: `v1.13.16`
 - Certification toolchain: `go1.26.5`
@@ -352,9 +352,9 @@ privilege alone does not prove that its firewall backend matches the host. A
 container result is not promoted to PASS until the target, rules, counters and
 original-destination path are all observed.
 
-The published Darwin arm64 archive was checksum-verified on the internal macOS
-host (SHA-256
-`0771f1b30834995e149e3d40d16287440ce21e86d8b6bcfb73461e01ee07c6fb`).
+The Darwin arm64 release candidate archive was checksum-verified on the
+internal macOS host (SHA-256
+`3de3c3aeb985ad268c69e97fa45d7781322cdf4c18e58433be6dd2a034f93997`).
 Its offline manual and feature identity loaded, then a SOCKS native
 inbound delivered a byte-compared TCP file through an embedded Direct
 outbound. A Direct native UDP inbound separately returned an exact datagram and
@@ -390,14 +390,16 @@ python3 .github/scripts/check_singbox_performance.py
 # Parser robustness and publication privacy
 (cd ../gust-x && go test ./config/cmd/singboxuri -run '^$' \
   -fuzz '^FuzzLexDoesNotPanic$' -fuzztime=10s)
-python3 .github/scripts/check_singbox_doc_privacy.py
+python3 .github/scripts/check_doc_privacy.py \
+  SINGBOX-ARCHITECTURE.md SINGBOX-VALIDATION.md \
+  cmd/gost/SINGBOX_MANUAL.md examples/singbox/README.md
 ```
 
 ## Certification evidence
 
-- Required Go CI: [run 31196849104](https://github.com/lovitus/gust/actions/runs/31196849104)
-- Pinned/latest compatibility: [run 31195877341](https://github.com/lovitus/gust/actions/runs/31195877341)
-- Six-platform build-only release rehearsal: [run 31197466032](https://github.com/lovitus/gust/actions/runs/31197466032)
+- Required Go CI: [run 31264723529](https://github.com/lovitus/gust/actions/runs/31264723529)
+- Pinned/latest compatibility: [run 31264438740](https://github.com/lovitus/gust/actions/runs/31264438740)
+- Six-platform build-only release rehearsal: [run 31265090521](https://github.com/lovitus/gust/actions/runs/31265090521)
 
 The acceptance matrix is PASS. Publishing still requires a clean pushed source
 branch and an `singbox-v*` tag contained in `origin/singbox-backend`; the tag
