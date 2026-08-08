@@ -2,6 +2,8 @@ name: qtui-route-manage-release
 
 on:
   push:
+    branches:
+      - qtui-route-manage
     tags:
       - 'qtui-v*'
   workflow_dispatch:
@@ -45,16 +47,24 @@ jobs:
             '+refs/heads/master:refs/remotes/origin/master' \
             '+refs/heads/qtui-route-manage:refs/remotes/origin/qtui-route-manage'
 
-          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_TYPE}" == "tag" ]]; then
             TAG="${GITHUB_REF_NAME}"
             PUBLISH=true
-          else
-            if [[ "${GITHUB_REF_TYPE}" != "branch" || "${GITHUB_REF_NAME}" != "qtui-route-manage" ]]; then
-              echo "build-only validation must run from qtui-route-manage" >&2
-              exit 1
+          elif [[ "${GITHUB_REF_TYPE}" == "branch" ]]; then
+            if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+              TAG="qtui-v${INPUT_VERSION#qtui-v}"
+            else
+              TAG="qtui-v0.1.0-ci.${GITHUB_RUN_NUMBER}.${GITHUB_SHA:0:7}"
             fi
-            TAG="qtui-v${INPUT_VERSION#qtui-v}"
             PUBLISH=false
+          else
+            echo "unsupported QtUI release event/ref: ${GITHUB_EVENT_NAME} ${GITHUB_REF_TYPE}" >&2
+            exit 1
+          fi
+
+          if [[ "${GITHUB_REF_TYPE}" == "branch" && "${GITHUB_REF_NAME}" != "qtui-route-manage" ]]; then
+            echo "build-only validation must run from qtui-route-manage" >&2
+            exit 1
           fi
 
           if [[ ! "${TAG}" =~ ^qtui-v[0-9A-Za-z][0-9A-Za-z._-]*$ ]]; then
@@ -191,6 +201,7 @@ jobs:
             gh release create "${TAG}" dist/* \
               --title "${TAG} — QtUI route manager" \
               --generate-notes \
+              --verify-tag \
               --prerelease \
               --latest=false
           fi
