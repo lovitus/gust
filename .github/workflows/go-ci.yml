@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - master
+      - qtui-route-manage
     paths-ignore:
       - 'Formula/**'
       - 'bucket/**'
   pull_request:
     branches:
       - master
+      - qtui-route-manage
   workflow_dispatch:
     inputs:
       gust_x_ref:

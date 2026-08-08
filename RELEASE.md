@@ -4,8 +4,11 @@ This repository publishes normal GitHub Release assets for every `v*` tag. Relea
 
 Standard tags must point to commits contained in `origin/master`; the release
 workflow rejects any other source. Embedded sing-box releases are maintained
-separately on `singbox-backend` with `singbox-v*` tags. See
-[BRANCH_POLICY.md](BRANCH_POLICY.md) before preparing either release line.
+separately on `singbox-backend` with `singbox-v*` tags. Custom graphical route
+manager releases are maintained independently on `qtui-route-manage` with
+`qtui-v*` tags. Neither downstream line may update the standard package-manager
+channels or replace the latest standard release. See
+[BRANCH_POLICY.md](BRANCH_POLICY.md) before preparing any release line.
 
 Current suffix releases such as `v3.2.9-porty7` are prereleases. They publish
 normal GitHub Release archives for `gost` and `portyd`, but they do not update
