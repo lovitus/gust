@@ -42,16 +42,21 @@ check_no_singbox() {
     licenses/GPL-3.0.txt
 }
 
+check_no_qtui() {
+  local root="$1"
+  check_absent "${root}" \
+    .github/qtui-route-manage-master.ref \
+    .github/qtui-route-manage-gust-x.ref \
+    .github/workflows/qtui-route-manage-release.yml \
+    cmd/gost-route-manager \
+    internal/routemanager \
+    docs/route-manager.zh-CN.md
+}
+
 case "${target_branch}" in
   master)
     check_no_singbox .
-    check_absent . \
-      .github/qtui-route-manage-master.ref \
-      .github/qtui-route-manage-gust-x.ref \
-      .github/workflows/qtui-route-manage-release.yml \
-      cmd/gost-route-manager \
-      internal/routemanager \
-      docs/route-manager.zh-CN.md
+    check_no_qtui .
     if grep -Fq 'github.com/sagernet/sing-box' go.mod; then
       fail "the embedded sing-box dependency must not enter master"
     fi
@@ -95,6 +100,7 @@ case "${target_branch}" in
     fi
     ;;
   singbox-backend)
+    check_no_qtui .
     check_present . \
       .github/singbox-gust-x.ref \
       .github/workflows/singbox-compat.yml \
