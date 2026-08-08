@@ -1,30 +1,37 @@
-# Standard and embedded sing-box releases
+# Standard, embedded sing-box and QtUI releases
 
-Gust maintains two independent development and release lines.
+Gust maintains three independent development and release lines.
 
 | Line | Source branch | Tag namespace | Assets | Package channels |
 |---|---|---|---|---|
 | Standard Gust | `master` | `vX.Y.Z` | `gost` and `portyd` standard matrix | Homebrew, Scoop, APT and RPM for stable tags |
 | Embedded sing-box | `singbox-backend` | `singbox-vX.Y.Z` | Six `gust-with-singbox` archives | None |
+| QtUI route manager | `qtui-route-manage` | `qtui-vX.Y.Z` | Native desktop route-manager archives | None |
 
 Standard tags must point to commits contained in `origin/master`; the release
 workflow rejects any other source. Embedded sing-box releases are maintained
-separately on `singbox-backend` with `singbox-v*` tags. See
-[BRANCH_POLICY.md](BRANCH_POLICY.md) before preparing either release line.
+separately on `singbox-backend` with `singbox-v*` tags. Custom graphical route
+manager releases are maintained independently on `qtui-route-manage` with
+`qtui-v*` tags. Neither downstream line may update the standard package-manager
+channels or replace the latest standard release. See
+[BRANCH_POLICY.md](BRANCH_POLICY.md) before preparing any release line.
 
 Current suffix releases such as `v3.2.9-porty7` are prereleases. They publish
 normal GitHub Release archives for `gost` and `portyd`, but they do not update
 Homebrew, Scoop, APT, or RPM package-manager channels.
 
-The two branches have different `.github/workflows/release.yml` definitions.
+The three branches have separate release workflow definitions.
 GitHub evaluates the workflow from the tagged commit, so a standard `v*` tag
 on `master` runs the standard workflow while a `singbox-v*` tag on
-`singbox-backend` runs the sing-box-only workflow.
+`singbox-backend` runs the sing-box-only workflow and a `qtui-v*` tag on
+`qtui-route-manage` runs the desktop workflow.
 
 ## Permanent branch policy
 
 - Develop every general capability and upstream sync on `master` first.
 - Develop only embedded-backend-specific work on `singbox-backend`.
+- Develop only personalized desktop route-management work on
+  `qtui-route-manage`; never merge it into either other product line.
 - Merge the tested `master` baseline forward into `singbox-backend`, resolve
   conflicts there, and rerun its complete matrix. Never merge the extension
   branch back into `master`.
