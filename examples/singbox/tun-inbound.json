@@ -1,0 +1,9 @@
+{
+  "type": "tun",
+  "tag": "tun-in",
+  "interface_name": "gust0",
+  "address": ["192.0.2.1/30"],
+  "stack": "gvisor",
+  "auto_route": false,
+  "strict_route": false
+}

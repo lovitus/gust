@@ -33,12 +33,12 @@ jobs:
       GO_VERSION: 1.26.5
     steps:
       - name: Checkout gust
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -194,6 +194,17 @@ jobs:
           (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -p 1 -tags "${tags}" \
             -run "${protocol_tests}" ./backend/singbox)
 
+      - name: Validate published sing-box examples without startup
+        if: ${{ matrix.suite == 'embedded' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/check_singbox_examples.py
+          tags="$(bash .github/scripts/singbox-tags.sh)"
+          binary="${RUNNER_TEMP}/gust-with-singbox-check"
+          go build -trimpath -tags "${tags}" -o "${binary}" ./cmd/gost
+          bash .github/scripts/check_singbox_example_runtime.sh "${binary}"
+
       - name: Test privileged Linux sing-box inbounds
         if: ${{ matrix.suite == 'embedded' }}
         shell: bash
@@ -259,10 +270,10 @@ jobs:
       GO_VERSION: 1.26.5
     steps:
       - name: Checkout gust
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -332,16 +343,16 @@ jobs:
       GO_VERSION: 1.26.5
     steps:
       - name: Checkout gust
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
@@ -379,7 +390,7 @@ jobs:
           bash .github/scripts/smoke_singbox_asset.sh "${root}"
 
       - name: Upload validated asset
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: singbox-native-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |

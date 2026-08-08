@@ -1,0 +1,25 @@
+{
+  "dns": {
+    "servers": [
+      {
+        "type": "udp",
+        "tag": "remote-dns",
+        "server": "resolver.example.com",
+        "server_port": 53
+      }
+    ],
+    "final": "remote-dns"
+  },
+  "outbounds": [
+    {
+      "type": "socks",
+      "tag": "proxy",
+      "server": "proxy.example.com",
+      "server_port": 1080,
+      "version": "5",
+      "username": "example-user",
+      "password": "REPLACE_WITH_PASSWORD",
+      "domain_resolver": "remote-dns"
+    }
+  ]
+}

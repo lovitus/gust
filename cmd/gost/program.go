@@ -52,6 +52,12 @@ func (p *program) Start() error {
 	if err != nil {
 		return err
 	}
+	if singboxCheck {
+		if err := writeSingboxCheck(os.Stdout, cfg); err != nil {
+			return err
+		}
+		os.Exit(0)
+	}
 
 	if outputFormat != "" {
 		if err := cfg.Write(os.Stdout, outputFormat); err != nil {

@@ -33,7 +33,7 @@ jobs:
     name: validate singbox release source
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -81,7 +81,7 @@ jobs:
             goarch: arm64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -94,7 +94,7 @@ jobs:
           bash .github/scripts/checkout_gust_x.sh ../gust-x
           "${INPUT_GUST_X_REF}" "${GITHUB_REF_NAME}" "${GITHUB_REF_TYPE}"
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -124,7 +124,7 @@ jobs:
             --out-dir dist
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: singbox-dist-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
@@ -162,12 +162,12 @@ jobs:
             echo "prerelease=${prerelease}"
           } >> "${GITHUB_OUTPUT}"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Download all singbox artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: singbox-dist-*
           path: dist/
@@ -231,6 +231,7 @@ jobs:
                   {
                       "name": os.environ["tag"],
                       "tag_name": os.environ["tag"],
+                      "target_commitish": "singbox-backend",
                       "body": Path("/tmp/singbox-release-notes.md").read_text(encoding="utf-8"),
                       "prerelease": os.environ["prerelease"] == "true",
                       "make_latest": "false",
@@ -248,6 +249,7 @@ jobs:
               --title "${tag}"
               --notes-file /tmp/singbox-release-notes.md
               --latest=false
+              --target singbox-backend
             )
             if [[ "${prerelease}" == true ]]; then
               create_args+=(--prerelease)

@@ -1,0 +1,20 @@
+{
+  "type": "vless",
+  "server": "reality.example.com",
+  "server_port": 443,
+  "uuid": "00000000-0000-4000-8000-000000000001",
+  "flow": "xtls-rprx-vision",
+  "tls": {
+    "enabled": true,
+    "server_name": "reality.example.com",
+    "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+    },
+    "reality": {
+      "enabled": true,
+      "public_key": "REPLACE_WITH_PUBLIC_KEY",
+      "short_id": "01234567"
+    }
+  }
+}

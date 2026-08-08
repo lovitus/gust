@@ -41,6 +41,7 @@ var (
 	metricsAddr  string
 	reload       time.Duration
 	watchdog     bool
+	singboxCheck bool
 )
 
 func handleWorkers() {
@@ -102,6 +103,7 @@ func parseFlags() {
 	flag.Var(&cfgFiles, "C", "config file(s), URL(s), or inline JSON")
 	flag.BoolVar(&printVersion, "V", false, "print version")
 	flag.BoolVar(&printSingboxManual, "singboxmanual", false, "print the embedded sing-box user manual")
+	flag.BoolVar(&singboxCheck, "singboxcheck", false, "validate embedded sing-box configuration without starting services")
 	flag.StringVar(&outputFormat, "O", "", "output format, one of yaml|json format")
 	flag.BoolVar(&debug, "D", false, "debug mode")
 	flag.BoolVar(&trace, "DD", false, "trace mode")

@@ -373,6 +373,11 @@ gost -L 'http://127.0.0.1:8080' \
   -F 'singbox://?json={"type":"socks","server":"127.0.0.1","server_port":1081,"version":"5"}'
 ```
 
+The repository also ships reviewed templates in `examples/singbox` for
+Shadowsocks UoT/multiplex, Reality client/server, ShadowTLS detour activation,
+remote DNS, TUN and TProxy. Each template is JSON-parsed, privacy-scanned and
+statically validated in CI; replace every `REPLACE_*` value before deployment.
+
 ## Complete sing-box configuration
 
 Use a complete config when the selected object depends on DNS,
@@ -695,6 +700,23 @@ Test the exact packaged binary and configuration that will be deployed. Keep a
 direct control result from the same client and target so a target outage is not
 misreported as a proxy failure.
 
+Before opening any listener or system resource, run the same arguments with
+`-singboxcheck`:
+
+```bash
+gost -singboxcheck \
+  -L 'socks5+singbox://user:password@127.0.0.1:1080' \
+  -F 'singbox://?json=./outbound.json'
+```
+
+It performs Gust parsing, merge/type handling and pinned native schema
+validation, then prints only build identity and object counts. It does not
+start sockets, TUN/TProxy, native services or background activity, and it does
+not print configuration values. This is a static check: DNS reachability,
+certificates, credentials, port availability, privileges and data paths still
+require runtime acceptance tests. `-O` remains useful for inspecting the exact
+effective config, but its output is secret-bearing.
+
 1. **Identity:** require `flavor=singbox`, the expected sing-box version and the
    expected platform features from `-V` and `feature-manifest.json`.
 2. **Configuration:** render with `-O json`, inspect direction, selected tag,
@@ -776,17 +798,19 @@ packet sizes normally dominate. The integration-specific costs are narrower:
   returns the native sing-box connection with lifecycle and runtime-lease
   wrappers; Gust then performs its usual service copy. After connection setup,
   the wrappers do not copy each TCP payload.
-- An outbound without a preceding GOST prefix route uses the runtime acquired
-  when its Transport starts. A non-Direct embedded outbound after a GOST prefix
-  route acquires a route-scoped selected-tag handle for the request. Canonical
-  identity lets matching requests share the expensive Box, but that scoped
-  acquisition still decodes/canonicalizes the stored config, hashes it and
-  performs pool/reference accounting. It is connection work, not packet work.
-- The connected UDP adapter currently allocates a temporary
-  `len(application buffer) + 512` byte buffer on each `Read`. The extra headroom
-  prevents SOCKS-style address headers from truncating the datagram before
-  sing-box removes them. This is correct but can increase allocation and GC
-  pressure for high packet-rate UDP workloads.
+- An outbound without a preceding GOST prefix route retains a lightweight
+  selected-tag lease on the already decoded and started runtime. A non-Direct
+  embedded outbound after a GOST prefix route uses a stable route-scope cache:
+  the first use creates the scoped runtime, while later connections retain a
+  handle without reparsing, canonicalizing, serializing or constructing a Box.
+  If a copied GOST Transport intentionally outlives its owner, it rebuilds as a
+  compatibility fallback instead of using a closed runtime.
+- Direct connected UDP reads into the caller's buffer. Proxy packet transports
+  obtain their required 512-byte address-header headroom from a bounded buffer
+  pool and copy only the decoded application payload to the caller. Oversized
+  buffers are not returned to the pool. This removes the previous
+  payload-sized allocation on each proxy UDP read while preserving packet
+  boundaries and header safety.
 - Protocol costs are the native sing-box implementation's costs: for example,
   AEAD encryption, Reality/TLS, QUIC congestion control, padding and protocol
   multiplexing. Gust adds listener/handler and chain work around that data
@@ -804,12 +828,11 @@ Practical advantages are one process, no IPC or hidden listener, full selected
 node dependency graphs, composition with existing Gust nodes, fail-closed
 prefix chaining, remote UDP domain preservation and safe reload leases. The
 main costs and limits are a larger singbox binary and runtime memory footprint,
-route-scoped outbound handle work, current outbound UDP read allocation, a
-pinned schema/feature set, platform-specific features, and one Box per native
+one cached runtime per distinct embedded outbound route scope, a pinned
+schema/feature set, platform-specific features, and one Box per native
 listener. Use the standard flavor when none of the embedded protocols is
-needed. Put a frequently used embedded node before unnecessary GOST prefix
-nodes when both chain orders are semantically valid; never reorder hops merely
-for a microbenchmark.
+needed. Scope count is determined by configured route combinations rather than
+packet count; all cached anchors close with their owning Transport.
 
 The `singbox-v3.2.11` release has fixed-runner evidence against the same
 official sing-box v1.13.16 direct inbound. Five raw samples are included in
@@ -844,7 +867,8 @@ systems with a small ephemeral-port range:
 ```bash
 tags="$(bash ../gust/.github/scripts/singbox-tags.sh)"
 go test -tags "$tags" ./backend/singbox -run '^$' \
-  -bench 'Benchmark(TCP|RuntimePool)' -benchmem -benchtime=500x
+  -bench 'Benchmark(TCP|RuntimePool|RetainedRuntimeHandle|ScopedRuntimeCacheHit|PacketConnRead)' \
+  -benchmem -benchtime=500x
 
 # The differential boundary test must use the same binary and host for both
 # official and Gust sub-benchmarks.
@@ -861,12 +885,14 @@ protocol throughput.
 
 1. Run `gost -V` and require `flavor=singbox`.
 2. Check `feature-manifest.json` for the current platform.
-3. Render configuration with `-O json` and inspect node type, tag and field
-   types without publishing secrets.
-4. Test through the local `-L` proxy to a controlled TCP/UDP/DNS target.
-5. For TLS and Reality, verify SNI, ALPN, public key, short ID, UUID and flow.
-6. For Naive, verify the Cronet library is beside the executable.
-7. Use `-D` for debug logs. Configuration errors identify field paths but
+3. Run the exact command with `-singboxcheck`; require a successful safe
+   summary and `startup not attempted`.
+4. When necessary, render with `-O json` and inspect node type, tag and field
+   types without publishing the secret-bearing output.
+5. Test through the local `-L` proxy to a controlled TCP/UDP/DNS target.
+6. For TLS and Reality, verify SNI, ALPN, public key, short ID, UUID and flow.
+7. For Naive, verify the Cronet library is beside the executable.
+8. Use `-D` for debug logs. Configuration errors identify field paths but
    intentionally redact passwords, private keys, tokens and complete JSON.
 
 For native `-L`, also check:
