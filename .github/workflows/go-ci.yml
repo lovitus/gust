@@ -95,9 +95,13 @@ jobs:
         if: ${{ matrix.suite == 'core' }}
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
-      - name: Reject private endpoints in published sing-box docs
+      - name: Reject private endpoints in published documentation
         if: ${{ matrix.suite == 'core' }}
-        run: python3 .github/scripts/check_singbox_doc_privacy.py
+        run: >-
+          python3 .github/scripts/check_doc_privacy.py
+          MAINTENANCE.md RELEASE.md SINGBOX-NOTICE.md
+          SINGBOX-ARCHITECTURE.md SINGBOX-VALIDATION.md
+          cmd/gost/SINGBOX_MANUAL.md examples/singbox/README.md
 
       - name: Verify fixed-runner sing-box performance baseline
         if: ${{ matrix.suite == 'core' }}
@@ -247,6 +251,115 @@ jobs:
                   -test.timeout=3m \
                   -test.run="^TestEmbeddedLinuxPrivilegedInboundMatrix$"
               '
+
+  e2e:
+    name: Docker E2E / ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: protocol-matrix
+            tests: '^(TestCoreProxyAuthenticationMatrix|TestCoreProxyProtocolMatrix|TestSOCKS5UDPAssociation|TestStreamTransportMatrix|TestUDPBackedStreamTransportMatrix)$'
+          - suite: policy-routing
+            tests: '^(TestAdmissionSuite|TestAuthSuite|TestBypassSuite|TestChainGroupSuite|TestFailCodesSuite|TestHostsSuite|TestIngressSuite|TestProbeSuite|TestResolverSuite|TestRoutingSuite|TestSelectorSuite)$'
+          - suite: http-tls
+            tests: '^(TestFileSuite|TestForwardSuite|TestHTTP2Suite|TestHTTPCacheSuite|TestHTTPSuite|TestMTLSSuite|TestPHTSuite|TestSniffingSuite|TestTLSSuite|TestUTLSSuite)$'
+          - suite: dns-shadowsocks
+            tests: '^(TestDNSSuite|TestShadowsocksSuite)$'
+    env:
+      GO_VERSION: 1.26.5
+    steps:
+      - name: Checkout gust
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Checkout matching gust-x
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          INPUT_GUST_X_REF: ${{ github.event.inputs.gust_x_ref }}
+        run: >-
+          bash .github/scripts/checkout_gust_x.sh ../gust-x
+          "${INPUT_GUST_X_REF}" "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" branch
+
+      - name: Enforce branch policy
+        env:
+          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+        run: bash .github/scripts/check_branch_policy.sh "${TARGET_BRANCH}" ../gust-x
+
+      - name: Run bounded Docker E2E suite
+        env:
+          E2E_TESTS: ${{ matrix.tests }}
+        run: >-
+          timeout --signal=TERM --kill-after=30s 20m
+          go test -count=1 -v -timeout 18m
+          -run "${E2E_TESTS}"
+          ./tests/e2e
+
+      - name: Capture Docker state after failure
+        if: ${{ failure() }}
+        run: |
+          docker ps -a
+          docker network ls
+
+  mihomo-uot:
+    name: Mihomo UoT v2 compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GO_VERSION: 1.26.5
+      MIHOMO_VERSION: v1.19.29
+      MIHOMO_ASSET: mihomo-linux-amd64-compatible-v1.19.29.gz
+      MIHOMO_SHA256: 5612e698e96c8b8ad15abc4c0a4f098eba9234354b4f248cb97f2528e215b094
+    steps:
+      - name: Checkout gust
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Checkout matching gust-x
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          INPUT_GUST_X_REF: ${{ github.event.inputs.gust_x_ref }}
+        run: >-
+          bash .github/scripts/checkout_gust_x.sh ../gust-x
+          "${INPUT_GUST_X_REF}" "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" branch
+
+      - name: Build Gust
+        run: go build -trimpath -o "${RUNNER_TEMP}/gust" ./cmd/gost
+
+      - name: Download pinned Mihomo
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/${MIHOMO_ASSET}"
+          curl --fail --location --retry 3 \
+            --output "${archive}" \
+            "https://github.com/MetaCubeX/mihomo/releases/download/${MIHOMO_VERSION}/${MIHOMO_ASSET}"
+          echo "${MIHOMO_SHA256}  ${archive}" | sha256sum --check --strict
+          gzip --decompress --stdout "${archive}" > "${RUNNER_TEMP}/mihomo"
+          chmod 0755 "${RUNNER_TEMP}/mihomo"
+          "${RUNNER_TEMP}/mihomo" -v
+
+      - name: Verify Mihomo UoT v2 UDP and DNS data planes
+        env:
+          GOST_BIN: ${{ runner.temp }}/gust
+          MIHOMO_BIN: ${{ runner.temp }}/mihomo
+        run: go test -count=1 -v -timeout 5m ./tests/compat
 
   singbox-cross-build:
     name: singbox cross-build / ${{ matrix.goos }}-${{ matrix.goarch }}
