@@ -86,6 +86,24 @@ func TestRefreshTunnelRowUpdatesOnlyStoredRowWidgets(t *testing.T) {
 	if len(status.Objects) != 1 || status.Objects[0] == oldBadge {
 		t.Fatal("status badge was not replaced in place")
 	}
+	if run.Icon == nil || run.Importance != widget.DangerImportance {
+		t.Fatal("stop button must have a stop icon and danger importance")
+	}
+}
+
+func TestTunnelStatusDisplayUsesDistinctSymbols(t *testing.T) {
+	want := map[string]string{
+		"运行中":  "▶ 运行中",
+		"已停止":  "■ 已停止",
+		"已保存":  "✓ 已保存",
+		"启动中":  "↻ 启动中",
+		"配置错误": "⚠ 配置错误",
+	}
+	for status, expected := range want {
+		if got := tunnelStatusDisplay(status); got != expected {
+			t.Fatalf("tunnelStatusDisplay(%q) = %q, want %q", status, got, expected)
+		}
+	}
 }
 
 func TestFormatLogsUsesNamesForGlobalView(t *testing.T) {

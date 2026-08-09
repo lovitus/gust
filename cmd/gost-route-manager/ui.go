@@ -81,6 +81,7 @@ func (c *controller) setupTray() {
 		return
 	}
 	show := fyne.NewMenuItem("显示主窗口", func() { c.window.Show(); c.window.RequestFocus() })
+	show.Icon = theme.ViewRestoreIcon()
 	stop := fyne.NewMenuItem("停止所有隧道", func() {
 		go func() {
 			if err := c.stopAll(); err != nil {
@@ -88,6 +89,7 @@ func (c *controller) setupTray() {
 			}
 		}()
 	})
+	stop.Icon = theme.MediaStopIcon()
 	quit := fyne.NewMenuItem("退出", func() {
 		go func() {
 			if err := c.stopAll(); err != nil {
@@ -97,6 +99,7 @@ func (c *controller) setupTray() {
 			fyne.Do(c.app.Quit)
 		}()
 	})
+	quit.Icon = theme.LogoutIcon()
 	desktopApp.SetSystemTrayMenu(fyne.NewMenu("Gust 路由管理", show, stop, fyne.NewMenuItemSeparator(), quit))
 	desktopApp.SetSystemTrayIcon(theme.ComputerIcon())
 	desktopApp.SetSystemTrayWindow(c.window)
@@ -193,15 +196,15 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 	parameters := c.tunnelParameters(t)
 	status := c.tunnelStatus(t.ID)
 	statusView := container.NewStack(tunnelStatusBadge(status))
-	runText := c.tunnelRunText(t.ID)
-	run := widget.NewButton(runText, func() {
+	run := widget.NewButtonWithIcon(c.tunnelRunText(t.ID), c.tunnelRunIcon(t.ID), func() {
 		if c.desired[t.ID] {
 			c.stopTunnel(t.ID)
 			return
 		}
 		c.startTunnel(*t, true)
 	})
-	save := widget.NewButton("保存", func() {
+	styleTunnelRunButton(run, c.desired[t.ID])
+	save := widget.NewButtonWithIcon("保存", theme.DocumentSaveIcon(), func() {
 		if _, err := routemanager.BuildArgs(*t); err != nil {
 			dialog.ShowError(err, c.window)
 			return
@@ -213,7 +216,7 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 		c.statuses[t.ID] = "已保存"
 		c.refreshTunnelRow(t.ID)
 	})
-	remove := widget.NewButton("删除", func() {
+	remove := widget.NewButtonWithIcon("删除", theme.DeleteIcon(), func() {
 		dialog.NewConfirm("删除记录", fmt.Sprintf("确定删除 %q？", t.Name), func(ok bool) {
 			if !ok {
 				return
@@ -223,7 +226,7 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 		}, c.window).Show()
 	})
 	remove.Importance = widget.DangerImportance
-	viewLogs := widget.NewButton("日志", func() { c.showTunnelLogs(t.ID, t.Name) })
+	viewLogs := widget.NewButtonWithIcon("日志", theme.FileTextIcon(), func() { c.showTunnelLogs(t.ID, t.Name) })
 	c.rowViews[t.ID] = &tunnelRowView{status: statusView, run: run}
 	return container.NewHBox(
 		fixed(140, name), fixed(90, statusView), fixed(590, parameters),
@@ -245,6 +248,21 @@ func (c *controller) tunnelRunText(id string) string {
 	return "运行"
 }
 
+func (c *controller) tunnelRunIcon(id string) fyne.Resource {
+	if c.desired[id] {
+		return theme.MediaStopIcon()
+	}
+	return theme.MediaPlayIcon()
+}
+
+func styleTunnelRunButton(button *widget.Button, stopping bool) {
+	if stopping {
+		button.Importance = widget.DangerImportance
+		return
+	}
+	button.Importance = widget.HighImportance
+}
+
 func (c *controller) refreshTunnelRow(id string) {
 	view := c.rowViews[id]
 	if view == nil {
@@ -254,6 +272,9 @@ func (c *controller) refreshTunnelRow(id string) {
 	view.status.Add(tunnelStatusBadge(c.tunnelStatus(id)))
 	view.status.Refresh()
 	view.run.SetText(c.tunnelRunText(id))
+	view.run.SetIcon(c.tunnelRunIcon(id))
+	styleTunnelRunButton(view.run, c.desired[id])
+	view.run.Refresh()
 }
 
 const (
@@ -317,11 +338,29 @@ func tunnelStatusBadge(status string) fyne.CanvasObject {
 		background = color.NRGBA{R: 255, G: 244, B: 229, A: 255}
 	}
 	box := canvas.NewRectangle(background)
-	label := canvas.NewText(status, foreground)
+	label := canvas.NewText(tunnelStatusDisplay(status), foreground)
 	label.TextSize = 13
 	label.TextStyle = fyne.TextStyle{Bold: true}
 	label.Alignment = fyne.TextAlignCenter
 	return container.NewStack(box, container.NewCenter(label))
+}
+
+func tunnelStatusDisplay(status string) string {
+	symbol := "•"
+	switch {
+	case status == "运行中":
+		symbol = "▶"
+	case status == "已停止":
+		symbol = "■"
+	case status == "已保存":
+		symbol = "✓"
+	case status == "无权限" || status == "错误" || status == "配置错误" || status == "程序缺失" ||
+		strings.Contains(status, "失败") || strings.Contains(status, "占用"):
+		symbol = "⚠"
+	case status == "启动中" || status == "停止中" || strings.Contains(status, "重启"):
+		symbol = "↻"
+	}
+	return symbol + " " + status
 }
 
 func (c *controller) footer() fyne.CanvasObject {
@@ -841,7 +880,7 @@ func (c *controller) showLogs(title string, version func() uint64, load func() (
 		confirm.Show()
 	})
 	clearButton.Importance = widget.DangerImportance
-	closeButton := widget.NewButton("关闭", d.Hide)
+	closeButton := widget.NewButtonWithIcon("关闭", theme.WindowCloseIcon(), d.Hide)
 	d.SetButtons([]fyne.CanvasObject{clearButton, refresh, closeButton})
 	done := make(chan struct{})
 	var stopOnce sync.Once
