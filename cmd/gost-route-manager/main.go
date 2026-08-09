@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"github.com/go-gost/gost/internal/routemanager"
 )
@@ -41,7 +42,9 @@ func main() {
 	}
 	instance, err := acquireSingleInstance(configAbs, lockWait)
 	if errors.Is(err, errInstanceRunning) {
-		fmt.Fprintln(os.Stderr, "Gust 路由管理工具已经在运行")
+		if activateErr := activateExistingInstance(configAbs, 2*time.Second); activateErr != nil {
+			fmt.Fprintln(os.Stderr, "Gust 路由管理工具已经在运行；", activateErr)
+		}
 		return
 	}
 	if err != nil {
@@ -53,6 +56,11 @@ func main() {
 	gui := app.NewWithID("us.lovis.gust.route-manager")
 	controller := newController(gui, configAbs, *gostPath)
 	controller.show()
+	go func() {
+		for range instance.Activations() {
+			fyne.Do(controller.restoreWindow)
+		}
+	}()
 	gui.Run()
 	controller.shutdown()
 

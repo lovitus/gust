@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -71,6 +73,12 @@ func (c *controller) setupTray() {
 	quit := fyne.NewMenuItem("退出", func() { go func() { c.stopAll(); fyne.Do(c.app.Quit) }() })
 	desktopApp.SetSystemTrayMenu(fyne.NewMenu("Gust 路由管理", show, stop, fyne.NewMenuItemSeparator(), quit))
 	desktopApp.SetSystemTrayIcon(theme.ComputerIcon())
+	desktopApp.SetSystemTrayWindow(c.window)
+}
+
+func (c *controller) restoreWindow() {
+	c.window.Show()
+	c.window.RequestFocus()
 }
 
 func (c *controller) render() {
@@ -509,9 +517,14 @@ func (c *controller) showTunnelLogs(id, name string) {
 	if strings.TrimSpace(name) == "" {
 		name = id
 	}
-	c.showLogs("任务日志 · "+name, func() string {
-		return formatLogs(c.processes.Logs(id, 100), nil)
-	})
+	c.showLogs(
+		"任务日志 · "+name,
+		func() uint64 { return c.processes.LogVersion(id) },
+		func() (string, uint64) {
+			lines, version := c.processes.LogsSnapshot(id, 100)
+			return formatLogs(lines, nil), version
+		},
+	)
 }
 
 func (c *controller) showAllLogs() {
@@ -519,19 +532,27 @@ func (c *controller) showAllLogs() {
 	for _, tunnel := range c.config.Tunnels {
 		names[tunnel.ID] = tunnel.Name
 	}
-	c.showLogs("全部任务日志 · 最近 1000 行", func() string {
-		return formatLogs(c.processes.AllLogs(1000), names)
-	})
+	c.showLogs(
+		"全部任务日志 · 最近 1000 行",
+		c.processes.AllLogVersion,
+		func() (string, uint64) {
+			lines, version := c.processes.AllLogsSnapshot(1000)
+			return formatLogs(lines, names), version
+		},
+	)
 }
 
-func (c *controller) showLogs(title string, load func() string) {
+func (c *controller) showLogs(title string, version func() uint64, load func() (string, uint64)) {
 	view := widget.NewMultiLineEntry()
 	view.Wrapping = fyne.TextWrapOff
 	current := ""
+	var currentVersion atomic.Uint64
 	updating := false
 	setText := func() {
+		text, loadedVersion := load()
 		updating = true
-		current = load()
+		current = text
+		currentVersion.Store(loadedVersion)
 		view.SetText(current)
 		updating = false
 	}
@@ -549,7 +570,34 @@ func (c *controller) showLogs(title string, load func() string) {
 	refresh := widget.NewButtonWithIcon("刷新", theme.ViewRefreshIcon(), setText)
 	closeButton := widget.NewButton("关闭", d.Hide)
 	d.SetButtons([]fyne.CanvasObject{refresh, closeButton})
+	done := make(chan struct{})
+	var stopOnce sync.Once
+	d.SetOnClosed(func() { stopOnce.Do(func() { close(done) }) })
 	d.Show()
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if version() == currentVersion.Load() {
+					continue
+				}
+				fyne.Do(func() {
+					select {
+					case <-done:
+						return
+					default:
+					}
+					if version() != currentVersion.Load() {
+						setText()
+					}
+				})
+			case <-done:
+				return
+			}
+		}
+	}()
 }
 
 func formatLogs(lines []routemanager.LogLine, names map[string]string) string {

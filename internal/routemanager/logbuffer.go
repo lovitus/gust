@@ -21,6 +21,8 @@ type LogBuffer struct {
 	per      map[string]*lineRing
 	all      *lineRing
 	partial  map[string]string
+	versions map[string]uint64
+	version  uint64
 }
 
 func NewLogBuffer(perLimit, allLimit int) *LogBuffer {
@@ -29,6 +31,7 @@ func NewLogBuffer(perLimit, allLimit int) *LogBuffer {
 		per:      make(map[string]*lineRing),
 		all:      newLineRing(allLimit),
 		partial:  make(map[string]string),
+		versions: make(map[string]uint64),
 	}
 }
 
@@ -87,6 +90,8 @@ func (b *LogBuffer) appendLocked(id, text string) {
 	}
 	ring.append(line)
 	b.all.append(line)
+	b.versions[id]++
+	b.version++
 }
 
 func (b *LogBuffer) Lines(id string, limit int) []LogLine {
@@ -102,6 +107,33 @@ func (b *LogBuffer) All(limit int) []LogLine {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.all.tail(limit)
+}
+
+func (b *LogBuffer) Version(id string) uint64 {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.versions[id]
+}
+
+func (b *LogBuffer) AllVersion() uint64 {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.version
+}
+
+func (b *LogBuffer) LinesSnapshot(id string, limit int) ([]LogLine, uint64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.per[id] == nil {
+		return nil, b.versions[id]
+	}
+	return b.per[id].tail(limit), b.versions[id]
+}
+
+func (b *LogBuffer) AllSnapshot(limit int) ([]LogLine, uint64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.all.tail(limit), b.version
 }
 
 type lineRing struct {

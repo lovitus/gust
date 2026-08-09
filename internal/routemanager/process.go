@@ -154,6 +154,22 @@ func (m *ProcessManager) AllLogs(limit int) []LogLine {
 	return m.logs.All(limit)
 }
 
+func (m *ProcessManager) LogVersion(id string) uint64 {
+	return m.logs.Version(id)
+}
+
+func (m *ProcessManager) AllLogVersion() uint64 {
+	return m.logs.AllVersion()
+}
+
+func (m *ProcessManager) LogsSnapshot(id string, limit int) ([]LogLine, uint64) {
+	return m.logs.LinesSnapshot(id, limit)
+}
+
+func (m *ProcessManager) AllLogsSnapshot(limit int) ([]LogLine, uint64) {
+	return m.logs.AllSnapshot(limit)
+}
+
 func (m *ProcessManager) AppendLog(id, text string) {
 	m.logs.Append(id, "[管理器] "+text)
 }
