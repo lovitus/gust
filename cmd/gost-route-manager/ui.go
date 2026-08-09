@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"image/color"
 	"os"
@@ -368,6 +369,11 @@ func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 		}
 		return
 	}
+	if notify {
+		// An explicit user action closes the previous circuit breaker and starts
+		// a fresh retry sequence. Watchdog restarts pass notify=false.
+		c.restarts[t.ID] = 0
+	}
 	c.desired[t.ID] = true
 	c.statuses[t.ID] = "启动中"
 	c.render()
@@ -383,15 +389,20 @@ func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 			if time.Since(startedAt) >= 30*time.Second {
 				c.restarts[t.ID] = 0
 			}
+			summary := tunnelFailureSummary(c.processes.Logs(t.ID, 12), err)
+			if err != nil && isPortBindingFailure(summary) {
+				c.stopRestartingAfterFailure(t, "端口被占用", summary)
+				return
+			}
 			c.restarts[t.ID]++
+			if err != nil && c.restarts[t.ID] >= 5 {
+				c.stopRestartingAfterFailure(t, "反复启动失败", summary)
+				return
+			}
 			delay := restartBackoff(c.restarts[t.ID])
 			c.statuses[t.ID] = fmt.Sprintf("%s 后重启", delay)
 			if err != nil && !strings.Contains(err.Error(), "signal") && notify {
-				message := strings.TrimSpace(c.processes.Output(t.ID))
-				if message == "" {
-					message = err.Error()
-				}
-				dialog.ShowError(fmt.Errorf("隧道 %s 已退出: %s", t.Name, message), c.window)
+				dialog.ShowError(fmt.Errorf("隧道 %s 启动失败，将在 %s 后重试：%s", t.Name, delay, summary), c.window)
 			}
 			c.scheduleRestart(t.ID, delay)
 			c.render()
@@ -399,6 +410,10 @@ func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 	})
 	if err != nil {
 		c.restarts[t.ID]++
+		if c.restarts[t.ID] >= 5 {
+			c.stopRestartingAfterFailure(t, "反复启动失败", err.Error())
+			return
+		}
 		delay := restartBackoff(c.restarts[t.ID])
 		c.statuses[t.ID] = fmt.Sprintf("%s 后重启", delay)
 		c.scheduleRestart(t.ID, delay)
@@ -411,6 +426,50 @@ func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 	c.running[t.ID] = true
 	c.statuses[t.ID] = "运行中"
 	c.render()
+}
+
+func (c *controller) stopRestartingAfterFailure(t routemanager.Tunnel, status, summary string) {
+	c.desired[t.ID] = false
+	c.cancelRestart(t.ID)
+	c.statuses[t.ID] = status + "（守护已停止）"
+	c.processes.AppendLog(t.ID, "守护已停止: "+summary)
+	c.render()
+	dialog.ShowError(fmt.Errorf("隧道 %s：%s。请修正后重新运行。", t.Name, summary), c.window)
+}
+
+func tunnelFailureSummary(lines []routemanager.LogLine, fallback error) string {
+	for i := len(lines) - 1; i >= 0; i-- {
+		text := strings.TrimSpace(lines[i].Text)
+		if text == "" || strings.HasPrefix(text, "[管理器]") {
+			continue
+		}
+		var payload struct {
+			Message string `json:"msg"`
+		}
+		if json.Unmarshal([]byte(text), &payload) == nil && strings.TrimSpace(payload.Message) != "" {
+			return truncateMessage(strings.TrimSpace(payload.Message), 600)
+		}
+		return truncateMessage(text, 600)
+	}
+	if fallback != nil {
+		return truncateMessage(fallback.Error(), 600)
+	}
+	return "进程已退出"
+}
+
+func truncateMessage(text string, limit int) string {
+	runes := []rune(text)
+	if len(runes) <= limit {
+		return text
+	}
+	return string(runes[:limit-1]) + "…"
+}
+
+func isPortBindingFailure(message string) bool {
+	message = strings.ToLower(message)
+	return strings.Contains(message, "address already in use") ||
+		strings.Contains(message, "only one usage of each socket address") ||
+		strings.Contains(message, "address/port is normally permitted")
 }
 
 func (c *controller) confirmStartTunnel(t routemanager.Tunnel) {
