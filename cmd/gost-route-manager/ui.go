@@ -69,8 +69,22 @@ func (c *controller) setupTray() {
 		return
 	}
 	show := fyne.NewMenuItem("显示主窗口", func() { c.window.Show(); c.window.RequestFocus() })
-	stop := fyne.NewMenuItem("停止所有隧道", func() { go c.stopAll() })
-	quit := fyne.NewMenuItem("退出", func() { go func() { c.stopAll(); fyne.Do(c.app.Quit) }() })
+	stop := fyne.NewMenuItem("停止所有隧道", func() {
+		go func() {
+			if err := c.stopAll(); err != nil {
+				fyne.Do(func() { dialog.ShowError(err, c.window) })
+			}
+		}()
+	})
+	quit := fyne.NewMenuItem("退出", func() {
+		go func() {
+			if err := c.stopAll(); err != nil {
+				fyne.Do(func() { dialog.ShowError(fmt.Errorf("无法安全退出: %w", err), c.window) })
+				return
+			}
+			fyne.Do(c.app.Quit)
+		}()
+	})
 	desktopApp.SetSystemTrayMenu(fyne.NewMenu("Gust 路由管理", show, stop, fyne.NewMenuItemSeparator(), quit))
 	desktopApp.SetSystemTrayIcon(theme.ComputerIcon())
 	desktopApp.SetSystemTrayWindow(c.window)
@@ -481,24 +495,29 @@ func (c *controller) startWatchdog() {
 	}()
 }
 
-func (c *controller) stopAll() {
+func (c *controller) stopAll() error {
 	fyne.DoAndWait(func() {
 		for id := range c.desired {
 			c.desired[id] = false
 			c.cancelRestart(id)
 		}
 	})
-	c.processes.StopAll()
+	err := c.processes.StopAll()
 	fyne.Do(func() {
 		for id := range c.running {
+			if c.processes.Running(id) {
+				c.statuses[id] = "停止失败"
+				continue
+			}
 			c.running[id] = false
 			c.statuses[id] = "已停止"
 		}
 		c.render()
 	})
+	return err
 }
 
-func (c *controller) shutdown() {
+func (c *controller) shutdown() error {
 	select {
 	case <-c.watchdogStop:
 	default:
@@ -510,7 +529,7 @@ func (c *controller) shutdown() {
 	for id := range c.desired {
 		c.desired[id] = false
 	}
-	c.processes.StopAll()
+	return c.processes.StopAll()
 }
 
 func (c *controller) showTunnelLogs(id, name string) {

@@ -62,7 +62,9 @@ func main() {
 		}
 	}()
 	gui.Run()
-	controller.shutdown()
+	if err := controller.shutdown(); err != nil {
+		fmt.Fprintln(os.Stderr, "退出时清理隧道失败:", err)
+	}
 
 	// Give gost a brief opportunity to tear down its TUN device and routes.
 	time.Sleep(100 * time.Millisecond)

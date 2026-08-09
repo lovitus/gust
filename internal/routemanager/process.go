@@ -14,12 +14,23 @@ import (
 type ProcessManager struct {
 	mu    sync.Mutex
 	bin   string
-	procs map[string]*exec.Cmd
+	procs map[string]*managedProcess
 	logs  *LogBuffer
 }
 
+type managedProcess struct {
+	cmd     *exec.Cmd
+	control processControl
+}
+
+type processControl interface {
+	stop() error
+	kill() error
+	close() error
+}
+
 func NewProcessManager(binary string) *ProcessManager {
-	return &ProcessManager{bin: binary, procs: make(map[string]*exec.Cmd), logs: NewLogBuffer(100, 1000)}
+	return &ProcessManager{bin: binary, procs: make(map[string]*managedProcess), logs: NewLogBuffer(100, 1000)}
 }
 
 func FindGost(explicit string) (string, error) {
@@ -79,10 +90,19 @@ func (m *ProcessManager) Start(t Tunnel, done func(error)) error {
 		m.logs.Append(t.ID, fmt.Sprintf("[管理器] 启动失败: %v", err))
 		return err
 	}
-	m.procs[t.ID] = cmd
+	control, err := ownProcess(cmd)
+	if err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		m.logs.Append(t.ID, fmt.Sprintf("[管理器] 建立进程所有权失败: %v", err))
+		return fmt.Errorf("建立隧道进程所有权: %w", err)
+	}
+	proc := &managedProcess{cmd: cmd, control: control}
+	m.procs[t.ID] = proc
 	m.logs.Append(t.ID, fmt.Sprintf("[管理器] 进程已启动，PID=%d", cmd.Process.Pid))
 	go func() {
 		err := cmd.Wait()
+		_ = control.close()
 		m.logs.Flush(t.ID)
 		if err != nil {
 			m.logs.Append(t.ID, fmt.Sprintf("[管理器] 进程已退出: %v", err))
@@ -90,7 +110,9 @@ func (m *ProcessManager) Start(t Tunnel, done func(error)) error {
 			m.logs.Append(t.ID, "[管理器] 进程已正常退出")
 		}
 		m.mu.Lock()
-		delete(m.procs, t.ID)
+		if m.procs[t.ID] == proc {
+			delete(m.procs, t.ID)
+		}
 		m.mu.Unlock()
 		done(err)
 	}()
@@ -106,35 +128,61 @@ func (m *ProcessManager) Running(id string) bool {
 
 func (m *ProcessManager) Stop(id string) error {
 	m.mu.Lock()
-	cmd := m.procs[id]
+	proc := m.procs[id]
 	m.mu.Unlock()
-	if cmd == nil || cmd.Process == nil {
+	if proc == nil || proc.cmd.Process == nil {
 		return nil
 	}
-	_ = stopProcess(cmd.Process)
+	if err := proc.control.stop(); err != nil && !isProcessDone(err) {
+		m.logs.Append(id, fmt.Sprintf("[管理器] 请求停止失败，将强制回收: %v", err))
+	}
 	deadline := time.Now().Add(3 * time.Second)
+	if m.waitStopped(id, proc, deadline) {
+		return nil
+	}
+	m.logs.Append(id, "[管理器] 优雅停止超时，强制回收本任务进程树")
+	if err := proc.control.kill(); err != nil && !isProcessDone(err) {
+		return fmt.Errorf("强制回收隧道进程树: %w", err)
+	}
+	if !m.waitStopped(id, proc, time.Now().Add(2*time.Second)) {
+		return errors.New("强制回收后进程仍未退出")
+	}
+	return nil
+}
+
+func (m *ProcessManager) waitStopped(id string, proc *managedProcess, deadline time.Time) bool {
 	for time.Now().Before(deadline) {
 		m.mu.Lock()
-		_, running := m.procs[id]
+		running := m.procs[id] == proc
 		m.mu.Unlock()
 		if !running {
-			return nil
+			return true
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return cmd.Process.Kill()
+	return false
 }
 
-func (m *ProcessManager) StopAll() {
+func (m *ProcessManager) StopAll() error {
 	m.mu.Lock()
 	ids := make([]string, 0, len(m.procs))
 	for id := range m.procs {
 		ids = append(ids, id)
 	}
 	m.mu.Unlock()
-	for _, id := range ids {
-		_ = m.Stop(id)
+	errByID := make([]error, len(ids))
+	var wg sync.WaitGroup
+	for i, id := range ids {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := m.Stop(id); err != nil {
+				errByID[i] = fmt.Errorf("%s: %w", id, err)
+			}
+		}()
 	}
+	wg.Wait()
+	return errors.Join(errByID...)
 }
 
 func (m *ProcessManager) Output(id string) string {
