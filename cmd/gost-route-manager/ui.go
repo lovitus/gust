@@ -796,9 +796,7 @@ func (c *controller) showAllLogs() {
 }
 
 func (c *controller) showLogs(title string, version func() uint64, load func() (string, uint64), clearLogs func()) {
-	view := widget.NewMultiLineEntry()
-	view.Wrapping = fyne.TextWrapOff
-	view.Scroll = fyne.ScrollBoth
+	view := newLogView()
 	current := ""
 	var currentVersion atomic.Uint64
 	updating := false
@@ -873,6 +871,16 @@ func (c *controller) showLogs(title string, version func() uint64, load func() (
 			}
 		}
 	}()
+}
+
+func newLogView() *widget.Entry {
+	view := widget.NewMultiLineEntry()
+	// Log and JSON lines can contain long strings without spaces. Break wrapping
+	// keeps them readable while vertical-only scrolling prevents tail refreshes
+	// from moving the viewport horizontally.
+	view.Wrapping = fyne.TextWrapBreak
+	view.Scroll = fyne.ScrollVerticalOnly
+	return view
 }
 
 func formatLogs(lines []routemanager.LogLine, names map[string]string) string {

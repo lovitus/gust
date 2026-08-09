@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
@@ -92,5 +93,15 @@ func TestFormatLogsUsesNamesForGlobalView(t *testing.T) {
 	lines := []routemanager.LogLine{{Time: when, TunnelID: "id-1", Text: "connected"}}
 	if got, want := formatLogs(lines, map[string]string{"id-1": "zwy"}), "[12:34:56] [zwy] connected"; got != want {
 		t.Fatalf("formatLogs() = %q, want %q", got, want)
+	}
+}
+
+func TestLogViewWrapsAndOnlyScrollsVertically(t *testing.T) {
+	view := newLogView()
+	if view.Wrapping != fyne.TextWrapBreak {
+		t.Fatalf("wrapping = %v, want TextWrapBreak", view.Wrapping)
+	}
+	if view.Scroll != fyne.ScrollVerticalOnly {
+		t.Fatalf("scroll direction = %v, want ScrollVerticalOnly", view.Scroll)
 	}
 }
