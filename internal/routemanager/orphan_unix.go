@@ -4,6 +4,7 @@ package routemanager
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"syscall"
 	"time"
@@ -37,6 +38,15 @@ func cleanupOrphanProcess(candidate *process.Process) error {
 		return nil
 	}
 	return err
+}
+
+func orphanCleanupAction(candidate *process.Process) string {
+	pid := int(candidate.Pid)
+	pgid, err := syscall.Getpgid(pid)
+	if err == nil && pgid == pid {
+		return fmt.Sprintf("kill(PGID=%d, SIGINT); 2 秒超时后 kill(PGID=%d, SIGKILL)", pgid, pgid)
+	}
+	return fmt.Sprintf("kill(PID=%d, SIGINT); 2 秒超时后 kill(PID=%d, SIGKILL)", pid, pid)
 }
 
 func killOrphanGroup(pid int) error {

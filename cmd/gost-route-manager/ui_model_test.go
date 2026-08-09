@@ -22,8 +22,9 @@ func TestFormatOrphanPreviewShowsIdentityAndCommand(t *testing.T) {
 	preview := formatOrphanPreview([]routemanager.OrphanProcess{{
 		PID: 42, StartedAt: time.Date(2026, 8, 9, 12, 34, 56, 0, time.Local).UnixMilli(),
 		Executable: "/opt/gust/gost-qt", CommandLine: "gost-qt -L tcp://:8080",
+		CleanupAction: "kill(PGID=42, SIGINT)",
 	}})
-	for _, want := range []string{"PID: 42", "2026-08-09 12:34:56", "/opt/gust/gost-qt", "gost-qt -L tcp://:8080"} {
+	for _, want := range []string{"PID: 42", "2026-08-09 12:34:56", "/opt/gust/gost-qt", "gost-qt -L tcp://:8080", "kill(PGID=42, SIGINT)"} {
 		if !strings.Contains(preview, want) {
 			t.Fatalf("preview %q does not contain %q", preview, want)
 		}

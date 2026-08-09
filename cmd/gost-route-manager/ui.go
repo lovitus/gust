@@ -125,7 +125,7 @@ func (c *controller) render() {
 		orphans.SetText("正在清理…")
 		orphans.Disable()
 	}
-	header := container.NewPadded(container.NewBorder(nil, nil, brand, container.NewHBox(container.NewCenter(privilegeBadge(elevated)), orphans, logs, elevate, add)))
+	header := container.NewPadded(container.NewBorder(nil, nil, brand, container.NewHBox(container.NewCenter(privilegeBadge(elevated)), elevate, orphans, logs, add)))
 
 	rows := container.NewVBox(c.tableHeader())
 	if len(c.config.Tunnels) == 0 {
@@ -196,7 +196,7 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 			c.stopTunnel(t.ID)
 			return
 		}
-		c.confirmStartTunnel(*t)
+		c.startTunnel(*t, true)
 	})
 	save := widget.NewButton("保存", func() {
 		if _, err := routemanager.BuildArgs(*t); err != nil {
@@ -374,6 +374,9 @@ func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 		// a fresh retry sequence. Watchdog restarts pass notify=false.
 		c.restarts[t.ID] = 0
 	}
+	if command, err := routemanager.CommandPreview(c.gostPath, t); err == nil {
+		c.processes.AppendLog(t.ID, "即将执行: "+command)
+	}
 	c.desired[t.ID] = true
 	c.statuses[t.ID] = "启动中"
 	c.render()
@@ -470,33 +473,6 @@ func isPortBindingFailure(message string) bool {
 	return strings.Contains(message, "address already in use") ||
 		strings.Contains(message, "only one usage of each socket address") ||
 		strings.Contains(message, "address/port is normally permitted")
-}
-
-func (c *controller) confirmStartTunnel(t routemanager.Tunnel) {
-	if !isElevated() {
-		c.startTunnel(t, true)
-		return
-	}
-	if c.binErr != nil {
-		dialog.ShowError(c.binErr, c.window)
-		return
-	}
-	command, err := routemanager.CommandPreview(c.gostPath, t)
-	if err != nil {
-		dialog.ShowError(err, c.window)
-		return
-	}
-	content := previewContent(
-		"以下是将直接执行的文件和完整参数（不经过 shell）：",
-		command,
-		fyne.NewSize(780, 190),
-	)
-	confirm := dialog.NewCustomConfirm("确认运行 · "+t.Name, "运行", "取消", content, func(ok bool) {
-		if ok {
-			c.startTunnel(t, true)
-		}
-	}, c.window)
-	confirm.Show()
 }
 
 func (c *controller) rejectGuardedStart(id, status string, err error) {
@@ -701,11 +677,16 @@ func formatOrphanPreview(targets []routemanager.OrphanProcess) string {
 		if command == "" {
 			command = executable
 		}
-		fmt.Fprintf(&out, "PID: %d\n启动时间: %s\n执行文件: %s\n命令: %s",
+		cleanupAction := strings.TrimSpace(target.CleanupAction)
+		if cleanupAction == "" {
+			cleanupAction = "终止已验证的 gost-qt 进程"
+		}
+		fmt.Fprintf(&out, "PID: %d\n启动时间: %s\n执行文件: %s\n原启动命令: %s\n清理动作: %s",
 			target.PID,
 			time.UnixMilli(target.StartedAt).Format("2006-01-02 15:04:05"),
 			executable,
 			command,
+			cleanupAction,
 		)
 	}
 	return out.String()

@@ -14,15 +14,18 @@ import (
 )
 
 func main() {
-	defaultConfig, err := routemanager.DefaultConfigPath()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	configPath := flag.String("config", defaultConfig, "配置文件路径")
-	gostPath := flag.String("gost", "", "gost 可执行文件路径")
+	configPath := flag.String("config", "", "配置文件路径（默认优先使用程序同目录）")
+	gostPath := flag.String("gost", "", "gost-qt 可执行文件路径")
 	readyFile := flag.String("elevation-ready", "", "提权启动握手文件")
 	flag.Parse()
+	if *configPath == "" {
+		defaultConfig, err := routemanager.DefaultConfigPath()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		*configPath = defaultConfig
+	}
 
 	configAbs, err := filepath.Abs(*configPath)
 	if err != nil {

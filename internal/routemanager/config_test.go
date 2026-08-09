@@ -1,10 +1,49 @@
 package routemanager
 
 import (
+	"errors"
 	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
+
+func TestUsePortableConfigMigratesLegacyConfig(t *testing.T) {
+	root := t.TempDir()
+	portable := filepath.Join(root, "app", portableConfigName)
+	legacy := filepath.Join(root, "user", "gust", portableConfigName)
+	if err := os.MkdirAll(filepath.Dir(portable), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	want := []byte("{\"version\":1,\"tunnels\":[]}\n")
+	if err := os.WriteFile(legacy, want, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !usePortableConfig(portable, legacy) {
+		t.Fatal("expected writable application directory to use portable config")
+	}
+	got, err := os.ReadFile(portable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("migrated config = %q, want %q", got, want)
+	}
+}
+
+func TestUsePortableConfigWithoutLegacy(t *testing.T) {
+	portable := filepath.Join(t.TempDir(), portableConfigName)
+	if !usePortableConfig(portable, filepath.Join(t.TempDir(), "missing.json")) {
+		t.Fatal("expected portable config when application directory is writable")
+	}
+	if _, err := os.Stat(portable); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("portable config should be created only on save: %v", err)
+	}
+}
 
 func TestParseRouteOptions(t *testing.T) {
 	opts, err := ParseRouteOptions("10.233.0.0/16, 10.27.0.0/16, dns=1.1.1.1,8.8.8.8, mtu=1380")

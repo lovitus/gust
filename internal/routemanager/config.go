@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	configVersion = 1
-	defaultMTU    = 1420
+	configVersion      = 1
+	defaultMTU         = 1420
+	portableConfigName = "route-manager.json"
 )
 
 type Tunnel struct {
@@ -43,11 +44,68 @@ type RouteOptions struct {
 }
 
 func DefaultConfigPath() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
+	userDir, userErr := os.UserConfigDir()
+	legacy := ""
+	if userErr == nil {
+		legacy = filepath.Join(userDir, "gust", portableConfigName)
 	}
-	return filepath.Join(dir, "gust", "route-manager.json"), nil
+	executable, executableErr := os.Executable()
+	if executableErr == nil {
+		portable := filepath.Join(filepath.Dir(executable), portableConfigName)
+		if usePortableConfig(portable, legacy) {
+			return portable, nil
+		}
+	}
+	if userErr != nil {
+		return "", userErr
+	}
+	return legacy, nil
+}
+
+func usePortableConfig(portable, legacy string) bool {
+	if info, err := os.Stat(portable); err == nil && !info.IsDir() {
+		file, err := os.OpenFile(portable, os.O_WRONLY, 0)
+		if err == nil {
+			_ = file.Close()
+			return true
+		}
+		return false
+	}
+	probe, err := os.CreateTemp(filepath.Dir(portable), ".gost-route-manager-write-")
+	if err != nil {
+		return false
+	}
+	probePath := probe.Name()
+	_ = probe.Close()
+	_ = os.Remove(probePath)
+
+	if legacy == "" {
+		return true
+	}
+	data, err := os.ReadFile(legacy)
+	if errors.Is(err, os.ErrNotExist) {
+		return true
+	}
+	if err != nil {
+		return false
+	}
+	file, err := os.OpenFile(portable, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return true
+	}
+	if err != nil {
+		return false
+	}
+	if _, err = file.Write(data); err != nil {
+		_ = file.Close()
+		_ = os.Remove(portable)
+		return false
+	}
+	if err = file.Close(); err != nil {
+		_ = os.Remove(portable)
+		return false
+	}
+	return true
 }
 
 func Load(path string) (Config, error) {
