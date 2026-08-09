@@ -39,6 +39,40 @@ func TestBuildArgs(t *testing.T) {
 	}
 }
 
+func TestBuildArgsSupportsCustomForwardChain(t *testing.T) {
+	args, err := BuildArgs(Tunnel{
+		ID: "1", Name: "chain", Routes: "10.0.0.0/8",
+		Target: `-F socks5://one:1080 -F "relay+wss://two:443?host=edge.example"`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"-F", "socks5://one:1080", "-F", "relay+wss://two:443?host=edge.example"}
+	if !reflect.DeepEqual(args[len(args)-len(want):], want) {
+		t.Fatalf("args = %#v", args)
+	}
+}
+
+func TestBuildArgsFreeModePassesWholeRecordWithoutGost(t *testing.T) {
+	want := []string{"-L", "tcp://:8080", "-L", "udp://:5353", "-F", "socks5://127.0.0.1:1080", "-F", "relay+wss://edge:443"}
+	args, err := BuildArgs(Tunnel{ID: "1", Name: "free", Mode: TunnelModeFree, Args: `-L tcp://:8080 -L udp://:5353 -F socks5://127.0.0.1:1080 -F relay+wss://edge:443`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("args = %#v, want %#v", args, want)
+	}
+}
+
+func TestBuildArgsFreeModeDoesNotRequireRoutesOrTarget(t *testing.T) {
+	if _, err := BuildArgs(Tunnel{Name: "free", Mode: TunnelModeFree, Args: `-L "tcp://:8080?foo=hello world"`}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BuildArgs(Tunnel{Name: "free", Mode: TunnelModeFree, Args: `gost -L tcp://:8080`}); err == nil {
+		t.Fatal("expected leading gost to be rejected")
+	}
+}
+
 func TestParseRouteOptionsRejectsBadInput(t *testing.T) {
 	for _, input := range []string{"", "10.0.0.1", "10.0.0.0/8,mtu=100", "10.0.0.0/8,dns=nope"} {
 		if _, err := ParseRouteOptions(input); err == nil {

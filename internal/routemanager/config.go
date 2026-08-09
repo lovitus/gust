@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/google/shlex"
 )
 
 const (
@@ -23,7 +25,11 @@ type Tunnel struct {
 	Name   string `json:"name"`
 	Routes string `json:"routes"`
 	Target string `json:"target"`
+	Mode   string `json:"mode,omitempty"`
+	Args   string `json:"args,omitempty"`
 }
+
+const TunnelModeFree = "free"
 
 type Config struct {
 	Version int      `json:"version"`
@@ -133,11 +139,8 @@ func ParseRouteOptions(input string) (RouteOptions, error) {
 
 func NormalizeTarget(target string) (string, error) {
 	target = strings.TrimSpace(target)
-	if strings.HasPrefix(target, "-F") {
-		target = strings.TrimSpace(strings.TrimPrefix(target, "-F"))
-	}
 	if target == "" {
-		return "", errors.New("目标 SOCKS / -F 不能为空")
+		return "", errors.New("目标 SOCKS 不能为空")
 	}
 	if !strings.Contains(target, "://") {
 		target = "socks5://" + target
@@ -149,15 +152,66 @@ func NormalizeTarget(target string) (string, error) {
 	return u.String(), nil
 }
 
+func ParseForwardArgs(input string) ([]string, error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return nil, errors.New("目标 SOCKS / 自定义 -F 链不能为空")
+	}
+	if !strings.HasPrefix(input, "-F") {
+		target, err := NormalizeTarget(input)
+		if err != nil {
+			return nil, err
+		}
+		return []string{"-F", target}, nil
+	}
+	args, err := shlex.Split(input)
+	if err != nil {
+		return nil, fmt.Errorf("解析 -F 链失败: %w", err)
+	}
+	for i := 0; i < len(args); {
+		if strings.HasPrefix(args[i], "-F=") && len(args[i]) > len("-F=") {
+			i++
+			continue
+		}
+		if args[i] != "-F" || i+1 >= len(args) || strings.TrimSpace(args[i+1]) == "" {
+			return nil, errors.New("自定义目标只能包含一个或多个 -F，例如 -F socks5://a:1080 -F relay+wss://b:443")
+		}
+		i += 2
+	}
+	return args, nil
+}
+
+func ParseFreeArgs(input string) ([]string, error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return nil, errors.New("自由 gost 参数不能为空")
+	}
+	args, err := shlex.Split(input)
+	if err != nil {
+		return nil, fmt.Errorf("解析自由 gost 参数失败: %w", err)
+	}
+	if len(args) == 0 {
+		return nil, errors.New("自由 gost 参数不能为空")
+	}
+	first := strings.ToLower(filepath.Base(args[0]))
+	if first == "gost" || first == "gost.exe" {
+		return nil, errors.New("自由参数前不需要输入 gost，只输入 -L / -F 等参数")
+	}
+	return args, nil
+}
+
 func BuildArgs(t Tunnel) ([]string, error) {
 	if strings.TrimSpace(t.Name) == "" {
-		return nil, errors.New("隧道名字不能为空")
+		return nil, errors.New("记录名字不能为空")
+	}
+	if t.Mode == TunnelModeFree {
+		return ParseFreeArgs(t.Args)
 	}
 	opts, err := ParseRouteOptions(t.Routes)
 	if err != nil {
 		return nil, err
 	}
-	target, err := NormalizeTarget(t.Target)
+	forwardArgs, err := ParseForwardArgs(t.Target)
 	if err != nil {
 		return nil, err
 	}
@@ -179,5 +233,5 @@ func BuildArgs(t Tunnel) ([]string, error) {
 		q.Set("dns", strings.Join(opts.DNS, ","))
 	}
 	u.RawQuery = q.Encode()
-	return []string{"-L", u.String(), "-F", target}, nil
+	return append([]string{"-L", u.String()}, forwardArgs...), nil
 }

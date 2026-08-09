@@ -12,7 +12,7 @@ func TestNewTunnelUsesPlaceholdersInsteadOfPrefilledValues(t *testing.T) {
 	if tunnel.ID != "tunnel-test" {
 		t.Fatalf("ID = %q", tunnel.ID)
 	}
-	if tunnel.Name != "" || tunnel.Routes != "" || tunnel.Target != "" {
+	if tunnel.Name != "" || tunnel.Routes != "" || tunnel.Target != "" || tunnel.Mode != "" || tunnel.Args != "" {
 		t.Fatalf("new tunnel must be empty so placeholders remain placeholders: %+v", tunnel)
 	}
 }

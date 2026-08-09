@@ -85,14 +85,14 @@ func (c *controller) render() {
 	if elevated {
 		elevate.Disable()
 	}
-	add := widget.NewButtonWithIcon("新增隧道", theme.ContentAddIcon(), c.addTunnel)
+	add := widget.NewButtonWithIcon("新增记录", theme.ContentAddIcon(), c.addTunnel)
 	add.Importance = widget.HighImportance
 	logs := widget.NewButtonWithIcon("全部日志", theme.FileTextIcon(), c.showAllLogs)
 	header := container.NewPadded(container.NewBorder(nil, nil, brand, container.NewHBox(container.NewCenter(privilegeBadge(elevated)), logs, elevate, add)))
 
 	rows := container.NewVBox(c.tableHeader())
 	if len(c.config.Tunnels) == 0 {
-		rows.Add(widget.NewCard("暂无隧道", "点击右上角“新增隧道”创建第一条配置", widget.NewLabel("新增记录不会预填内容，灰色文字仅作为输入示例。")))
+		rows.Add(widget.NewCard("暂无记录", "点击右上角“新增记录”创建第一条配置", widget.NewLabel("新增记录不会预填内容，灰色文字仅作为输入示例。")))
 	}
 	for i := range c.config.Tunnels {
 		rows.Add(widget.NewCard("", "", c.tunnelRow(i)))
@@ -122,10 +122,13 @@ func privilegeBadge(elevated bool) fyne.CanvasObject {
 
 func (c *controller) tableHeader() fyne.CanvasObject {
 	return container.NewHBox(
-		fixed(140, widget.NewLabelWithStyle("隧道名字", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+		fixed(140, widget.NewLabelWithStyle("记录名字", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
 		fixed(90, widget.NewLabelWithStyle("状态", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
-		fixed(360, widget.NewLabelWithStyle("路由条目（逗号分隔，可含 dns= / mtu=）", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
-		fixed(230, widget.NewLabelWithStyle("目标 SOCKS / 自定义 -F", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+		fixed(590, container.NewHBox(
+			fixed(110, widget.NewLabelWithStyle("模式", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+			fixed(290, widget.NewLabelWithStyle("路由条目（可含 dns= / mtu=）", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+			widget.NewLabelWithStyle("SOCKS 或 -F 链 / 自由参数", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		)),
 		widget.NewLabelWithStyle("操作", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 	)
 }
@@ -142,14 +145,7 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 	name.SetText(t.Name)
 	name.SetPlaceHolder("例如：zwy")
 	name.OnChanged = func(value string) { t.Name = value }
-	routes := widget.NewEntry()
-	routes.SetText(t.Routes)
-	routes.SetPlaceHolder("10.0.0.0/8,dns=1.1.1.1,mtu=1420")
-	routes.OnChanged = func(value string) { t.Routes = value }
-	target := widget.NewEntry()
-	target.SetText(t.Target)
-	target.SetPlaceHolder("192.168.1.37:5555 或 -F socks5://...")
-	target.OnChanged = func(value string) { t.Target = value }
+	parameters := c.tunnelParameters(t)
 	status := c.statuses[t.ID]
 	if status == "" {
 		status = "已停止"
@@ -178,7 +174,7 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 		c.render()
 	})
 	remove := widget.NewButton("删除", func() {
-		dialog.NewConfirm("删除隧道", fmt.Sprintf("确定删除 %q？", t.Name), func(ok bool) {
+		dialog.NewConfirm("删除记录", fmt.Sprintf("确定删除 %q？", t.Name), func(ok bool) {
 			if !ok {
 				return
 			}
@@ -189,9 +185,54 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 	remove.Importance = widget.DangerImportance
 	viewLogs := widget.NewButton("日志", func() { c.showTunnelLogs(t.ID, t.Name) })
 	return container.NewHBox(
-		fixed(140, name), fixed(90, tunnelStatusBadge(status)), fixed(360, routes), fixed(230, target),
+		fixed(140, name), fixed(90, tunnelStatusBadge(status)), fixed(590, parameters),
 		container.NewHBox(run, save, viewLogs, remove),
 	)
+}
+
+const (
+	modeRouteLabel = "路由管理"
+	modeFreeLabel  = "自由参数"
+)
+
+func (c *controller) tunnelParameters(t *routemanager.Tunnel) fyne.CanvasObject {
+	mode := widget.NewSelect([]string{modeRouteLabel, modeFreeLabel}, nil)
+	if t.Mode == routemanager.TunnelModeFree {
+		mode.SetSelected(modeFreeLabel)
+	} else {
+		mode.SetSelected(modeRouteLabel)
+	}
+	mode.OnChanged = func(value string) {
+		selected := ""
+		if value == modeFreeLabel {
+			selected = routemanager.TunnelModeFree
+		}
+		if t.Mode == selected {
+			return
+		}
+		t.Mode = selected
+		c.render()
+	}
+
+	var editor fyne.CanvasObject
+	if t.Mode == routemanager.TunnelModeFree {
+		args := widget.NewEntry()
+		args.SetText(t.Args)
+		args.SetPlaceHolder("-L ... -L ... -F ... -F ...（不要输入 gost）")
+		args.OnChanged = func(value string) { t.Args = value }
+		editor = args
+	} else {
+		routes := widget.NewEntry()
+		routes.SetText(t.Routes)
+		routes.SetPlaceHolder("10.0.0.0/8,dns=1.1.1.1,mtu=1420")
+		routes.OnChanged = func(value string) { t.Routes = value }
+		target := widget.NewEntry()
+		target.SetText(t.Target)
+		target.SetPlaceHolder("host:port 或 -F ... -F ...")
+		target.OnChanged = func(value string) { t.Target = value }
+		editor = container.NewBorder(nil, nil, fixed(290, routes), nil, target)
+	}
+	return container.NewBorder(nil, nil, fixed(110, mode), nil, editor)
 }
 
 func tunnelStatusBadge(status string) fyne.CanvasObject {
@@ -486,11 +527,26 @@ func (c *controller) showAllLogs() {
 func (c *controller) showLogs(title string, load func() string) {
 	view := widget.NewMultiLineEntry()
 	view.Wrapping = fyne.TextWrapOff
-	view.SetText(load())
-	view.Disable()
+	current := ""
+	updating := false
+	setText := func() {
+		updating = true
+		current = load()
+		view.SetText(current)
+		updating = false
+	}
+	view.OnChanged = func(value string) {
+		if updating || value == current {
+			return
+		}
+		updating = true
+		view.SetText(current)
+		updating = false
+	}
+	setText()
 	content := container.NewGridWrap(fyne.NewSize(900, 460), view)
 	d := dialog.NewCustomWithoutButtons(title, content, c.window)
-	refresh := widget.NewButtonWithIcon("刷新", theme.ViewRefreshIcon(), func() { view.SetText(load()) })
+	refresh := widget.NewButtonWithIcon("刷新", theme.ViewRefreshIcon(), setText)
 	closeButton := widget.NewButton("关闭", d.Hide)
 	d.SetButtons([]fyne.CanvasObject{refresh, closeButton})
 	d.Show()
