@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
@@ -39,7 +41,7 @@ func newController(a fyne.App, configPath, explicitGost string) *controller {
 		statuses: map[string]string{}, loadErr: loadErr, binErr: binErr,
 	}
 	c.window = a.NewWindow("自定义路由管理工具（类似 tun2socks）")
-	c.window.Resize(fyne.NewSize(1120, 420))
+	c.window.Resize(fyne.NewSize(1200, 520))
 	c.window.SetCloseIntercept(c.window.Hide)
 	return c
 }
@@ -69,49 +71,72 @@ func (c *controller) setupTray() {
 }
 
 func (c *controller) render() {
-	privilege := "无权限"
-	if isElevated() {
-		privilege = "高权限"
-	}
-	title := widget.NewLabelWithStyle("自定义路由管理工具（类似 tun2socks）", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	privilegeLabel := widget.NewLabel("高权状态: " + privilege)
+	elevated := isElevated()
+	title := canvas.NewText("Gust 自定义路由管理", theme.Color(theme.ColorNameForeground))
+	title.TextSize = 22
+	title.TextStyle = fyne.TextStyle{Bold: true}
+	subtitle := widget.NewLabel("轻量隧道与系统路由控制 · 类似 tun2socks")
+	brand := container.NewVBox(title, subtitle)
 	elevate := widget.NewButtonWithIcon("提权", theme.LoginIcon(), c.requestElevation)
-	elevate.Disable()
-	if !isElevated() {
-		elevate.Enable()
+	elevate.Importance = widget.HighImportance
+	if elevated {
+		elevate.Disable()
 	}
 	add := widget.NewButtonWithIcon("新增隧道", theme.ContentAddIcon(), c.addTunnel)
-	header := container.NewBorder(nil, nil, title, container.NewHBox(privilegeLabel, elevate, add))
+	add.Importance = widget.HighImportance
+	header := container.NewPadded(container.NewBorder(nil, nil, brand, container.NewHBox(container.NewCenter(privilegeBadge(elevated)), elevate, add)))
 
 	rows := container.NewVBox(c.tableHeader())
 	if len(c.config.Tunnels) == 0 {
-		rows.Add(widget.NewLabel("还没有隧道，点击“新增隧道”开始。"))
+		rows.Add(widget.NewCard("暂无隧道", "点击右上角“新增隧道”创建第一条配置", widget.NewLabel("新增记录不会预填内容，灰色文字仅作为输入示例。")))
 	}
 	for i := range c.config.Tunnels {
-		rows.Add(c.tunnelRow(i))
+		rows.Add(widget.NewCard("", "", c.tunnelRow(i)))
 	}
-	c.content = container.NewBorder(container.NewVBox(header, widget.NewSeparator()), c.footer(), nil, nil, container.NewVScroll(rows))
+	c.content = container.NewBorder(container.NewVBox(header, widget.NewSeparator()), c.footer(), nil, nil, container.NewVScroll(container.NewPadded(rows)))
 	c.window.SetContent(c.content)
+}
+
+func privilegeBadge(elevated bool) fyne.CanvasObject {
+	text := "● 高权状态：无权限"
+	foreground := color.NRGBA{R: 180, G: 35, B: 24, A: 255}
+	background := color.NRGBA{R: 254, G: 236, B: 234, A: 255}
+	if elevated {
+		text = "● 高权状态：高权限"
+		foreground = color.NRGBA{R: 19, G: 119, B: 72, A: 255}
+		background = color.NRGBA{R: 230, G: 248, B: 237, A: 255}
+	}
+	box := canvas.NewRectangle(background)
+	box.StrokeColor = foreground
+	box.StrokeWidth = 1
+	label := canvas.NewText(text, foreground)
+	label.TextSize = 13
+	label.TextStyle = fyne.TextStyle{Bold: true}
+	label.Alignment = fyne.TextAlignCenter
+	return container.NewGridWrap(fyne.NewSize(156, 36), container.NewStack(box, container.NewCenter(label)))
 }
 
 func (c *controller) tableHeader() fyne.CanvasObject {
 	return container.NewHBox(
-		fixed(130, widget.NewLabelWithStyle("隧道名字", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
-		fixed(80, widget.NewLabelWithStyle("状态", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+		fixed(150, widget.NewLabelWithStyle("隧道名字", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+		fixed(96, widget.NewLabelWithStyle("状态", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
 		fixed(390, widget.NewLabelWithStyle("路由条目（逗号分隔，可含 dns= / mtu=）", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
-		fixed(250, widget.NewLabelWithStyle("目标 SOCKS / 自定义 -F", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+		fixed(260, widget.NewLabelWithStyle("目标 SOCKS / 自定义 -F", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
 		widget.NewLabelWithStyle("操作", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 	)
 }
 
 func fixed(width float32, object fyne.CanvasObject) fyne.CanvasObject {
-	return container.NewGridWrap(fyne.NewSize(width, 40), object)
+	// Fyne entries and buttons need more than 40 px on current desktop themes.
+	// A shared safe height keeps labels, inputs and buttons on one visual baseline.
+	return container.NewGridWrap(fyne.NewSize(width, 52), object)
 }
 
 func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 	t := &c.config.Tunnels[index]
 	name := widget.NewEntry()
 	name.SetText(t.Name)
+	name.SetPlaceHolder("例如：zwy")
 	name.OnChanged = func(value string) { t.Name = value }
 	routes := widget.NewEntry()
 	routes.SetText(t.Routes)
@@ -125,7 +150,6 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 	if status == "" {
 		status = "已停止"
 	}
-	statusLabel := widget.NewLabel(status)
 	runText := "运行"
 	if c.running[t.ID] {
 		runText = "停止"
@@ -164,10 +188,33 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 			c.deleteTunnel(t.ID)
 		}, c.window).Show()
 	})
+	remove.Importance = widget.DangerImportance
 	return container.NewHBox(
-		fixed(130, name), fixed(80, statusLabel), fixed(390, routes), fixed(250, target),
+		fixed(150, name), fixed(96, tunnelStatusBadge(status)), fixed(390, routes), fixed(260, target),
 		container.NewHBox(run, save, remove),
 	)
+}
+
+func tunnelStatusBadge(status string) fyne.CanvasObject {
+	foreground := color.NRGBA{R: 73, G: 80, B: 87, A: 255}
+	background := color.NRGBA{R: 239, G: 241, B: 243, A: 255}
+	switch status {
+	case "运行中":
+		foreground = color.NRGBA{R: 19, G: 119, B: 72, A: 255}
+		background = color.NRGBA{R: 230, G: 248, B: 237, A: 255}
+	case "错误":
+		foreground = color.NRGBA{R: 180, G: 35, B: 24, A: 255}
+		background = color.NRGBA{R: 254, G: 236, B: 234, A: 255}
+	case "启动中", "停止中":
+		foreground = color.NRGBA{R: 181, G: 71, B: 8, A: 255}
+		background = color.NRGBA{R: 255, G: 244, B: 229, A: 255}
+	}
+	box := canvas.NewRectangle(background)
+	label := canvas.NewText(status, foreground)
+	label.TextSize = 13
+	label.TextStyle = fyne.TextStyle{Bold: true}
+	label.Alignment = fyne.TextAlignCenter
+	return container.NewStack(box, container.NewCenter(label))
 }
 
 func (c *controller) footer() fyne.CanvasObject {
@@ -178,10 +225,12 @@ func (c *controller) footer() fyne.CanvasObject {
 
 func (c *controller) addTunnel() {
 	id := fmt.Sprintf("tunnel-%d", time.Now().UnixNano())
-	c.config.Tunnels = append(c.config.Tunnels, routemanager.Tunnel{
-		ID: id, Name: "新隧道", Routes: "10.0.0.0/8,mtu=1420", Target: "127.0.0.1:1080",
-	})
+	c.config.Tunnels = append(c.config.Tunnels, newTunnel(id))
 	c.render()
+}
+
+func newTunnel(id string) routemanager.Tunnel {
+	return routemanager.Tunnel{ID: id}
 }
 
 func (c *controller) deleteTunnel(id string) {

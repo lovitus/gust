@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -27,9 +28,27 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if *readyFile != "" {
+
+	handoff := *readyFile != ""
+	if handoff {
+		// Let the ordinary process exit and release its instance lock before the
+		// elevated replacement tries to take ownership.
 		_ = os.WriteFile(*readyFile, []byte("ready\n"), 0o600)
 	}
+	lockWait := time.Duration(0)
+	if handoff {
+		lockWait = 20 * time.Second
+	}
+	instance, err := acquireSingleInstance(configAbs, lockWait)
+	if errors.Is(err, errInstanceRunning) {
+		fmt.Fprintln(os.Stderr, "Gust 路由管理工具已经在运行")
+		return
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "单实例检查失败:", err)
+		os.Exit(1)
+	}
+	defer instance.Close()
 
 	gui := app.NewWithID("us.lovis.gust.route-manager")
 	controller := newController(gui, configAbs, *gostPath)
