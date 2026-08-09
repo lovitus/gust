@@ -21,27 +21,27 @@
 路由条目使用逗号分隔，至少包含一个 CIDR；还可以追加 DNS 和 MTU：
 
 ```text
-10.233.0.0/16,10.27.0.0/16,10.26.0.0/26,dns=1.1.1.1,8.8.8.8,mtu=1420
+192.0.2.0/24,198.51.100.0/24,203.0.113.0/26,dns=192.0.2.53,198.51.100.53,mtu=1420
 ```
 
 目标只写地址时默认使用 SOCKS5：
 
 ```text
-192.168.1.37:5555
+192.0.2.37:5555
 ```
 
 也可以填写完整的 Gust `-F` URL；单个目标的 `-F` 可省略，多级穿透链则依次填写多个 `-F`：
 
 ```text
-socks5://user:password@192.168.1.37:5555
+socks5://user:password@192.0.2.37:5555
 -F http2://proxy.example.com:443
--F socks5://192.168.1.37:5555 -F relay+wss://proxy.example.com:443
+-F socks5://192.0.2.37:5555 -F relay+wss://proxy.example.com:443
 ```
 
 “自由参数”模式不会自动添加任何监听、转发或路由参数，整行直接交给 gost：
 
 ```text
--L tcp://:8080 -L udp://:5353 -F socks5://192.168.1.37:5555 -F relay+wss://proxy.example.com:443
+-L tcp://:8080 -L udp://:5353 -F socks5://192.0.2.37:5555 -F relay+wss://proxy.example.com:443
 ```
 
 ## 构建和运行
