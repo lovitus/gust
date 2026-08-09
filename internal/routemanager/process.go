@@ -29,6 +29,8 @@ type processControl interface {
 	close() error
 }
 
+const ManagedBackendName = "gost-qt"
+
 func NewProcessManager(binary string) *ProcessManager {
 	return &ProcessManager{bin: binary, procs: make(map[string]*managedProcess), logs: NewLogBuffer(100, 1000)}
 }
@@ -41,8 +43,8 @@ func FindGost(explicit string) (string, error) {
 		return executableFile(env)
 	}
 	exe, _ := os.Executable()
-	name := "gost"
-	if filepath.Ext(exe) == ".exe" {
+	name := ManagedBackendName
+	if strings.EqualFold(filepath.Ext(exe), ".exe") {
 		name += ".exe"
 	}
 	for _, candidate := range []string{filepath.Join(filepath.Dir(exe), name), filepath.Join(".", name)} {
@@ -50,10 +52,10 @@ func FindGost(explicit string) (string, error) {
 			return path, nil
 		}
 	}
-	if path, err := exec.LookPath("gost"); err == nil {
+	if path, err := exec.LookPath(name); err == nil {
 		return path, nil
 	}
-	return "", errors.New("找不到 gost；请把 gost 放在本程序同目录，或使用 --gost 指定")
+	return "", errors.New("找不到 gost-qt；请把 gost-qt 放在本程序同目录，或使用 --gost 指定")
 }
 
 func executableFile(path string) (string, error) {
@@ -124,6 +126,18 @@ func (m *ProcessManager) Running(id string) bool {
 	defer m.mu.Unlock()
 	_, ok := m.procs[id]
 	return ok
+}
+
+func (m *ProcessManager) OwnedPIDs() map[int32]struct{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	pids := make(map[int32]struct{}, len(m.procs))
+	for _, proc := range m.procs {
+		if proc != nil && proc.cmd != nil && proc.cmd.Process != nil {
+			pids[int32(proc.cmd.Process.Pid)] = struct{}{}
+		}
+	}
+	return pids
 }
 
 func (m *ProcessManager) Stop(id string) error {

@@ -32,6 +32,9 @@ type controller struct {
 	statuses      map[string]string
 	restarts      map[string]int
 	restartTimers map[string]*time.Timer
+	orphans       []routemanager.OrphanProcess
+	orphanErr     error
+	orphanBusy    bool
 	watchdogStop  chan struct{}
 	content       *fyne.Container
 	loadErr       error
@@ -50,6 +53,7 @@ func newController(a fyne.App, configPath, explicitGost string) *controller {
 	c.window = a.NewWindow("自定义路由管理工具（类似 tun2socks）")
 	c.window.Resize(fyne.NewSize(1200, 520))
 	c.window.SetCloseIntercept(c.window.Hide)
+	c.orphans, c.orphanErr = routemanager.ScanOrphanProcesses(c.gostPath, c.processes.OwnedPIDs())
 	return c
 }
 
@@ -110,7 +114,17 @@ func (c *controller) render() {
 	add := widget.NewButtonWithIcon("新增记录", theme.ContentAddIcon(), c.addTunnel)
 	add.Importance = widget.HighImportance
 	logs := widget.NewButtonWithIcon("全部日志", theme.FileTextIcon(), c.showAllLogs)
-	header := container.NewPadded(container.NewBorder(nil, nil, brand, container.NewHBox(container.NewCenter(privilegeBadge(elevated)), logs, elevate, add)))
+	orphans := widget.NewButtonWithIcon(fmt.Sprintf("孤儿服务：%d 个", len(c.orphans)), theme.DeleteIcon(), c.cleanupOrphans)
+	if len(c.orphans) > 0 {
+		orphans.Importance = widget.DangerImportance
+	} else {
+		orphans.Importance = widget.LowImportance
+	}
+	if c.orphanBusy {
+		orphans.SetText("正在清理…")
+		orphans.Disable()
+	}
+	header := container.NewPadded(container.NewBorder(nil, nil, brand, container.NewHBox(container.NewCenter(privilegeBadge(elevated)), orphans, logs, elevate, add)))
 
 	rows := container.NewVBox(c.tableHeader())
 	if len(c.config.Tunnels) == 0 {
@@ -515,6 +529,79 @@ func (c *controller) stopAll() error {
 		c.render()
 	})
 	return err
+}
+
+func (c *controller) cleanupOrphans() {
+	if c.orphanBusy {
+		return
+	}
+	if c.orphanErr != nil {
+		dialog.ShowError(c.orphanErr, c.window)
+		return
+	}
+	if len(c.orphans) == 0 {
+		c.refreshOrphans(true)
+		return
+	}
+	if !isElevated() {
+		dialog.ShowInformation("需要提权", "清理孤儿服务需要高权限，即将请求系统授权。", c.window)
+		c.requestElevation()
+		return
+	}
+	targets := append([]routemanager.OrphanProcess(nil), c.orphans...)
+	confirm := dialog.NewConfirm(
+		"清理孤儿服务",
+		fmt.Sprintf("将停止并清理 %d 个故障遗留的 gost-qt 服务。不会影响名为 gost 的其他进程。", len(targets)),
+		func(ok bool) {
+			if !ok {
+				return
+			}
+			c.orphanBusy = true
+			c.render()
+			go func() {
+				cleanupErr := routemanager.CleanupOrphanProcesses(targets)
+				remaining, scanErr := routemanager.ScanOrphanProcesses(c.gostPath, c.processes.OwnedPIDs())
+				fyne.Do(func() {
+					c.orphanBusy = false
+					c.orphans = remaining
+					c.orphanErr = scanErr
+					c.render()
+					if cleanupErr != nil {
+						dialog.ShowError(cleanupErr, c.window)
+						return
+					}
+					if scanErr != nil {
+						dialog.ShowError(scanErr, c.window)
+						return
+					}
+					dialog.ShowInformation("清理完成", fmt.Sprintf("已处理 %d 个孤儿服务，剩余 %d 个。", len(targets), len(remaining)), c.window)
+				})
+			}()
+		},
+		c.window,
+	)
+	confirm.SetConfirmText("清理")
+	confirm.SetConfirmImportance(widget.DangerImportance)
+	confirm.Show()
+}
+
+func (c *controller) refreshOrphans(notify bool) {
+	c.orphanBusy = true
+	c.render()
+	go func() {
+		orphans, err := routemanager.ScanOrphanProcesses(c.gostPath, c.processes.OwnedPIDs())
+		fyne.Do(func() {
+			c.orphanBusy = false
+			c.orphans = orphans
+			c.orphanErr = err
+			c.render()
+			if err != nil {
+				dialog.ShowError(err, c.window)
+			} else if notify {
+				dialog.ShowInformation("扫描完成", fmt.Sprintf("发现 %d 个孤儿服务。", len(orphans)), c.window)
+			}
+		})
+	}()
 }
 
 func (c *controller) shutdown() error {

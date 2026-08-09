@@ -38,9 +38,11 @@ all: linux-amd64 darwin-amd64 darwin-arm64 windows-amd64 # Most used
 # native GUI development libraries. On Windows, use the windowsgui flags below
 # to avoid opening a console window.
 route-manager:
+	CGO_ENABLED=0 go build -trimpath --ldflags="-s -w" -o $(BINDIR)/gost-qt ./cmd/gost
 	CGO_ENABLED=1 go build -trimpath --ldflags="-s -w" -o $(BINDIR)/$(ROUTE_MANAGER_NAME) ./cmd/gost-route-manager
 
 route-manager-windows:
+	CGO_ENABLED=0 go build -trimpath --ldflags="-s -w" -o $(BINDIR)/gost-qt.exe ./cmd/gost
 	CGO_ENABLED=1 go build -trimpath --ldflags="-s -w -H=windowsgui" -o $(BINDIR)/$(ROUTE_MANAGER_NAME).exe ./cmd/gost-route-manager
 
 darwin-amd64:

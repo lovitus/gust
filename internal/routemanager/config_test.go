@@ -71,6 +71,9 @@ func TestBuildArgsFreeModeDoesNotRequireRoutesOrTarget(t *testing.T) {
 	if _, err := BuildArgs(Tunnel{Name: "free", Mode: TunnelModeFree, Args: `gost -L tcp://:8080`}); err == nil {
 		t.Fatal("expected leading gost to be rejected")
 	}
+	if _, err := BuildArgs(Tunnel{Name: "free", Mode: TunnelModeFree, Args: `gost-qt -L tcp://:8080`}); err == nil {
+		t.Fatal("expected leading gost-qt to be rejected")
+	}
 }
 
 func TestParseRouteOptionsRejectsBadInput(t *testing.T) {

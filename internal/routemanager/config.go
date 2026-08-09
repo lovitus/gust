@@ -194,7 +194,7 @@ func ParseFreeArgs(input string) ([]string, error) {
 		return nil, errors.New("自由 gost 参数不能为空")
 	}
 	first := strings.ToLower(filepath.Base(args[0]))
-	if first == "gost" || first == "gost.exe" {
+	if first == "gost" || first == "gost.exe" || first == ManagedBackendName || first == ManagedBackendName+".exe" {
 		return nil, errors.New("自由参数前不需要输入 gost，只输入 -L / -F 等参数")
 	}
 	return args, nil

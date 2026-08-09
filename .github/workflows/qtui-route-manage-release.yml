@@ -149,7 +149,7 @@ jobs:
 
           mkdir -p dist/package
           go build -trimpath -ldflags="-s -w" \
-            -o "dist/package/gost${EXT}" ./cmd/gost
+            -o "dist/package/gost-qt${EXT}" ./cmd/gost
           CGO_ENABLED=1 go build -trimpath -ldflags="${GUI_LDFLAGS}" \
             -o "dist/package/gost-route-manager${EXT}" ./cmd/gost-route-manager
 
