@@ -19,17 +19,21 @@ import (
 )
 
 type controller struct {
-	app        fyne.App
-	window     fyne.Window
-	configPath string
-	gostPath   string
-	config     routemanager.Config
-	processes  *routemanager.ProcessManager
-	running    map[string]bool
-	statuses   map[string]string
-	content    *fyne.Container
-	loadErr    error
-	binErr     error
+	app           fyne.App
+	window        fyne.Window
+	configPath    string
+	gostPath      string
+	config        routemanager.Config
+	processes     *routemanager.ProcessManager
+	running       map[string]bool
+	desired       map[string]bool
+	statuses      map[string]string
+	restarts      map[string]int
+	restartTimers map[string]*time.Timer
+	watchdogStop  chan struct{}
+	content       *fyne.Container
+	loadErr       error
+	binErr        error
 }
 
 func newController(a fyne.App, configPath, explicitGost string) *controller {
@@ -37,8 +41,9 @@ func newController(a fyne.App, configPath, explicitGost string) *controller {
 	bin, binErr := routemanager.FindGost(explicitGost)
 	c := &controller{
 		app: a, configPath: configPath, gostPath: bin, config: cfg,
-		processes: routemanager.NewProcessManager(bin), running: map[string]bool{},
-		statuses: map[string]string{}, loadErr: loadErr, binErr: binErr,
+		processes: routemanager.NewProcessManager(bin), running: map[string]bool{}, desired: map[string]bool{},
+		statuses: map[string]string{}, restarts: map[string]int{}, restartTimers: map[string]*time.Timer{},
+		watchdogStop: make(chan struct{}), loadErr: loadErr, binErr: binErr,
 	}
 	c.window = a.NewWindow("自定义路由管理工具（类似 tun2socks）")
 	c.window.Resize(fyne.NewSize(1200, 520))
@@ -49,6 +54,7 @@ func newController(a fyne.App, configPath, explicitGost string) *controller {
 func (c *controller) show() {
 	c.render()
 	c.setupTray()
+	c.startWatchdog()
 	c.window.Show()
 	if c.loadErr != nil {
 		dialog.ShowError(c.loadErr, c.window)
@@ -62,10 +68,7 @@ func (c *controller) setupTray() {
 	}
 	show := fyne.NewMenuItem("显示主窗口", func() { c.window.Show(); c.window.RequestFocus() })
 	stop := fyne.NewMenuItem("停止所有隧道", func() { go c.stopAll() })
-	quit := fyne.NewMenuItem("退出", func() {
-		c.processes.StopAll()
-		c.app.Quit()
-	})
+	quit := fyne.NewMenuItem("退出", func() { go func() { c.stopAll(); fyne.Do(c.app.Quit) }() })
 	desktopApp.SetSystemTrayMenu(fyne.NewMenu("Gust 路由管理", show, stop, fyne.NewMenuItemSeparator(), quit))
 	desktopApp.SetSystemTrayIcon(theme.ComputerIcon())
 }
@@ -84,7 +87,8 @@ func (c *controller) render() {
 	}
 	add := widget.NewButtonWithIcon("新增隧道", theme.ContentAddIcon(), c.addTunnel)
 	add.Importance = widget.HighImportance
-	header := container.NewPadded(container.NewBorder(nil, nil, brand, container.NewHBox(container.NewCenter(privilegeBadge(elevated)), elevate, add)))
+	logs := widget.NewButtonWithIcon("全部日志", theme.FileTextIcon(), c.showAllLogs)
+	header := container.NewPadded(container.NewBorder(nil, nil, brand, container.NewHBox(container.NewCenter(privilegeBadge(elevated)), logs, elevate, add)))
 
 	rows := container.NewVBox(c.tableHeader())
 	if len(c.config.Tunnels) == 0 {
@@ -118,10 +122,10 @@ func privilegeBadge(elevated bool) fyne.CanvasObject {
 
 func (c *controller) tableHeader() fyne.CanvasObject {
 	return container.NewHBox(
-		fixed(150, widget.NewLabelWithStyle("隧道名字", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
-		fixed(96, widget.NewLabelWithStyle("状态", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
-		fixed(390, widget.NewLabelWithStyle("路由条目（逗号分隔，可含 dns= / mtu=）", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
-		fixed(260, widget.NewLabelWithStyle("目标 SOCKS / 自定义 -F", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+		fixed(140, widget.NewLabelWithStyle("隧道名字", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+		fixed(90, widget.NewLabelWithStyle("状态", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+		fixed(360, widget.NewLabelWithStyle("路由条目（逗号分隔，可含 dns= / mtu=）", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
+		fixed(230, widget.NewLabelWithStyle("目标 SOCKS / 自定义 -F", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})),
 		widget.NewLabelWithStyle("操作", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 	)
 }
@@ -151,21 +155,15 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 		status = "已停止"
 	}
 	runText := "运行"
-	if c.running[t.ID] {
+	if c.desired[t.ID] {
 		runText = "停止"
 	}
 	run := widget.NewButton(runText, func() {
-		if c.running[t.ID] {
-			c.statuses[t.ID] = "停止中"
-			c.render()
-			go func(id string) {
-				if err := c.processes.Stop(id); err != nil {
-					fyne.Do(func() { dialog.ShowError(err, c.window) })
-				}
-			}(t.ID)
+		if c.desired[t.ID] {
+			c.stopTunnel(t.ID)
 			return
 		}
-		c.runTunnel(*t)
+		c.startTunnel(*t, true)
 	})
 	save := widget.NewButton("保存", func() {
 		if _, err := routemanager.BuildArgs(*t); err != nil {
@@ -189,23 +187,24 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 		}, c.window).Show()
 	})
 	remove.Importance = widget.DangerImportance
+	viewLogs := widget.NewButton("日志", func() { c.showTunnelLogs(t.ID, t.Name) })
 	return container.NewHBox(
-		fixed(150, name), fixed(96, tunnelStatusBadge(status)), fixed(390, routes), fixed(260, target),
-		container.NewHBox(run, save, remove),
+		fixed(140, name), fixed(90, tunnelStatusBadge(status)), fixed(360, routes), fixed(230, target),
+		container.NewHBox(run, save, viewLogs, remove),
 	)
 }
 
 func tunnelStatusBadge(status string) fyne.CanvasObject {
 	foreground := color.NRGBA{R: 73, G: 80, B: 87, A: 255}
 	background := color.NRGBA{R: 239, G: 241, B: 243, A: 255}
-	switch status {
-	case "运行中":
+	switch {
+	case status == "运行中":
 		foreground = color.NRGBA{R: 19, G: 119, B: 72, A: 255}
 		background = color.NRGBA{R: 230, G: 248, B: 237, A: 255}
-	case "错误":
+	case status == "错误" || status == "配置错误" || status == "程序缺失":
 		foreground = color.NRGBA{R: 180, G: 35, B: 24, A: 255}
 		background = color.NRGBA{R: 254, G: 236, B: 234, A: 255}
-	case "启动中", "停止中":
+	case status == "启动中" || status == "停止中" || strings.Contains(status, "重启"):
 		foreground = color.NRGBA{R: 181, G: 71, B: 8, A: 255}
 		background = color.NRGBA{R: 255, G: 244, B: 229, A: 255}
 	}
@@ -241,7 +240,10 @@ func (c *controller) deleteTunnel(id string) {
 		}
 	}
 	delete(c.running, id)
+	delete(c.desired, id)
 	delete(c.statuses, id)
+	delete(c.restarts, id)
+	c.cancelRestart(id)
 	if err := c.save(); err != nil {
 		dialog.ShowError(err, c.window)
 	}
@@ -252,48 +254,81 @@ func (c *controller) save() error {
 	return routemanager.Save(c.configPath, c.config)
 }
 
-func (c *controller) runTunnel(t routemanager.Tunnel) {
+func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 	if !isElevated() {
-		dialog.NewConfirm("需要提权", "创建 TUN 设备和系统路由需要管理员/root 权限。现在提权吗？", func(ok bool) {
-			if ok {
-				c.requestElevation()
-			}
-		}, c.window).Show()
+		if notify {
+			dialog.NewConfirm("需要提权", "创建 TUN 设备和系统路由需要管理员/root 权限。现在提权吗？", func(ok bool) {
+				if ok {
+					c.requestElevation()
+				}
+			}, c.window).Show()
+		} else {
+			c.rejectGuardedStart(t.ID, "无权限", nil)
+		}
 		return
 	}
 	if c.binErr != nil {
-		dialog.ShowError(c.binErr, c.window)
+		if notify {
+			dialog.ShowError(c.binErr, c.window)
+		} else {
+			c.rejectGuardedStart(t.ID, "程序缺失", c.binErr)
+		}
 		return
 	}
 	if _, err := routemanager.BuildArgs(t); err != nil {
-		dialog.ShowError(err, c.window)
+		if notify {
+			dialog.ShowError(err, c.window)
+		} else {
+			c.rejectGuardedStart(t.ID, "配置错误", err)
+		}
 		return
 	}
 	if err := c.save(); err != nil {
-		dialog.ShowError(err, c.window)
+		if notify {
+			dialog.ShowError(err, c.window)
+		} else {
+			c.rejectGuardedStart(t.ID, "配置错误", err)
+		}
 		return
 	}
+	c.desired[t.ID] = true
 	c.statuses[t.ID] = "启动中"
 	c.render()
+	startedAt := time.Now()
 	err := c.processes.Start(t, func(err error) {
 		fyne.Do(func() {
 			c.running[t.ID] = false
-			c.statuses[t.ID] = "已停止"
-			if err != nil && !strings.Contains(err.Error(), "signal") {
-				c.statuses[t.ID] = "错误"
+			if !c.desired[t.ID] {
+				c.statuses[t.ID] = "已停止"
+				c.render()
+				return
+			}
+			if time.Since(startedAt) >= 30*time.Second {
+				c.restarts[t.ID] = 0
+			}
+			c.restarts[t.ID]++
+			delay := restartBackoff(c.restarts[t.ID])
+			c.statuses[t.ID] = fmt.Sprintf("%s 后重启", delay)
+			if err != nil && !strings.Contains(err.Error(), "signal") && notify {
 				message := strings.TrimSpace(c.processes.Output(t.ID))
 				if message == "" {
 					message = err.Error()
 				}
 				dialog.ShowError(fmt.Errorf("隧道 %s 已退出: %s", t.Name, message), c.window)
 			}
+			c.scheduleRestart(t.ID, delay)
 			c.render()
 		})
 	})
 	if err != nil {
-		c.statuses[t.ID] = "错误"
+		c.restarts[t.ID]++
+		delay := restartBackoff(c.restarts[t.ID])
+		c.statuses[t.ID] = fmt.Sprintf("%s 后重启", delay)
+		c.scheduleRestart(t.ID, delay)
 		c.render()
-		dialog.ShowError(err, c.window)
+		if notify {
+			dialog.ShowError(err, c.window)
+		}
 		return
 	}
 	c.running[t.ID] = true
@@ -301,7 +336,109 @@ func (c *controller) runTunnel(t routemanager.Tunnel) {
 	c.render()
 }
 
+func (c *controller) rejectGuardedStart(id, status string, err error) {
+	c.desired[id] = false
+	c.cancelRestart(id)
+	c.statuses[id] = status
+	message := "守护已停止: " + status
+	if err != nil {
+		message += ": " + err.Error()
+	}
+	c.processes.AppendLog(id, message)
+	c.render()
+}
+
+func restartBackoff(attempt int) time.Duration {
+	if attempt < 1 {
+		attempt = 1
+	}
+	if attempt > 5 {
+		attempt = 5
+	}
+	return time.Duration(1<<uint(attempt-1)) * time.Second
+}
+
+func (c *controller) stopTunnel(id string) {
+	c.desired[id] = false
+	c.cancelRestart(id)
+	c.statuses[id] = "停止中"
+	c.render()
+	go func() {
+		if err := c.processes.Stop(id); err != nil {
+			fyne.Do(func() { dialog.ShowError(err, c.window) })
+			return
+		}
+		fyne.Do(func() {
+			c.running[id] = false
+			c.statuses[id] = "已停止"
+			c.render()
+		})
+	}()
+}
+
+func (c *controller) scheduleRestart(id string, delay time.Duration) {
+	c.cancelRestart(id)
+	c.restartTimers[id] = time.AfterFunc(delay, func() {
+		fyne.Do(func() {
+			delete(c.restartTimers, id)
+			if !c.desired[id] || c.processes.Running(id) {
+				return
+			}
+			tunnel, ok := c.tunnelByID(id)
+			if !ok {
+				return
+			}
+			c.startTunnel(tunnel, false)
+		})
+	})
+}
+
+func (c *controller) cancelRestart(id string) {
+	if timer := c.restartTimers[id]; timer != nil {
+		timer.Stop()
+		delete(c.restartTimers, id)
+	}
+}
+
+func (c *controller) tunnelByID(id string) (routemanager.Tunnel, bool) {
+	for _, tunnel := range c.config.Tunnels {
+		if tunnel.ID == id {
+			return tunnel, true
+		}
+	}
+	return routemanager.Tunnel{}, false
+}
+
+func (c *controller) startWatchdog() {
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				fyne.Do(func() {
+					for id, desired := range c.desired {
+						if desired && !c.processes.Running(id) && c.restartTimers[id] == nil {
+							c.statuses[id] = "守护重启中"
+							c.scheduleRestart(id, 0)
+							c.render()
+						}
+					}
+				})
+			case <-c.watchdogStop:
+				return
+			}
+		}
+	}()
+}
+
 func (c *controller) stopAll() {
+	fyne.DoAndWait(func() {
+		for id := range c.desired {
+			c.desired[id] = false
+			c.cancelRestart(id)
+		}
+	})
 	c.processes.StopAll()
 	fyne.Do(func() {
 		for id := range c.running {
@@ -310,6 +447,72 @@ func (c *controller) stopAll() {
 		}
 		c.render()
 	})
+}
+
+func (c *controller) shutdown() {
+	select {
+	case <-c.watchdogStop:
+	default:
+		close(c.watchdogStop)
+	}
+	for id := range c.restartTimers {
+		c.cancelRestart(id)
+	}
+	for id := range c.desired {
+		c.desired[id] = false
+	}
+	c.processes.StopAll()
+}
+
+func (c *controller) showTunnelLogs(id, name string) {
+	if strings.TrimSpace(name) == "" {
+		name = id
+	}
+	c.showLogs("任务日志 · "+name, func() string {
+		return formatLogs(c.processes.Logs(id, 100), nil)
+	})
+}
+
+func (c *controller) showAllLogs() {
+	names := make(map[string]string, len(c.config.Tunnels))
+	for _, tunnel := range c.config.Tunnels {
+		names[tunnel.ID] = tunnel.Name
+	}
+	c.showLogs("全部任务日志 · 最近 1000 行", func() string {
+		return formatLogs(c.processes.AllLogs(1000), names)
+	})
+}
+
+func (c *controller) showLogs(title string, load func() string) {
+	view := widget.NewMultiLineEntry()
+	view.Wrapping = fyne.TextWrapOff
+	view.SetText(load())
+	view.Disable()
+	content := container.NewGridWrap(fyne.NewSize(900, 460), view)
+	d := dialog.NewCustomWithoutButtons(title, content, c.window)
+	refresh := widget.NewButtonWithIcon("刷新", theme.ViewRefreshIcon(), func() { view.SetText(load()) })
+	closeButton := widget.NewButton("关闭", d.Hide)
+	d.SetButtons([]fyne.CanvasObject{refresh, closeButton})
+	d.Show()
+}
+
+func formatLogs(lines []routemanager.LogLine, names map[string]string) string {
+	if len(lines) == 0 {
+		return "暂无日志"
+	}
+	var out strings.Builder
+	for _, line := range lines {
+		fmt.Fprintf(&out, "[%s]", line.Time.Format("15:04:05"))
+		if names != nil {
+			name := strings.TrimSpace(names[line.TunnelID])
+			if name == "" {
+				name = line.TunnelID
+			}
+			fmt.Fprintf(&out, " [%s]", name)
+		}
+		fmt.Fprintf(&out, " %s\n", line.Text)
+	}
+	return strings.TrimSuffix(out.String(), "\n")
 }
 
 func (c *controller) requestElevation() {

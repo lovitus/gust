@@ -54,7 +54,7 @@ func main() {
 	controller := newController(gui, configAbs, *gostPath)
 	controller.show()
 	gui.Run()
-	controller.processes.StopAll()
+	controller.shutdown()
 
 	// Give gost a brief opportunity to tear down its TUN device and routes.
 	time.Sleep(100 * time.Millisecond)

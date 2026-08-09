@@ -1,25 +1,25 @@
 package routemanager
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
 
 type ProcessManager struct {
-	mu     sync.Mutex
-	bin    string
-	procs  map[string]*exec.Cmd
-	output map[string]*bytes.Buffer
+	mu    sync.Mutex
+	bin   string
+	procs map[string]*exec.Cmd
+	logs  *LogBuffer
 }
 
 func NewProcessManager(binary string) *ProcessManager {
-	return &ProcessManager{bin: binary, procs: make(map[string]*exec.Cmd), output: make(map[string]*bytes.Buffer)}
+	return &ProcessManager{bin: binary, procs: make(map[string]*exec.Cmd), logs: NewLogBuffer(100, 1000)}
 }
 
 func FindGost(explicit string) (string, error) {
@@ -70,24 +70,38 @@ func (m *ProcessManager) Start(t Tunnel, done func(error)) error {
 	if _, ok := m.procs[t.ID]; ok {
 		return errors.New("隧道已经在运行")
 	}
-	buf := &bytes.Buffer{}
 	cmd := exec.Command(m.bin, args...)
-	cmd.Stdout = buf
-	cmd.Stderr = buf
+	writer := m.logs.Writer(t.ID)
+	cmd.Stdout = writer
+	cmd.Stderr = writer
 	prepareProcess(cmd)
 	if err := cmd.Start(); err != nil {
+		m.logs.Append(t.ID, fmt.Sprintf("[管理器] 启动失败: %v", err))
 		return err
 	}
 	m.procs[t.ID] = cmd
-	m.output[t.ID] = buf
+	m.logs.Append(t.ID, fmt.Sprintf("[管理器] 进程已启动，PID=%d", cmd.Process.Pid))
 	go func() {
 		err := cmd.Wait()
+		m.logs.Flush(t.ID)
+		if err != nil {
+			m.logs.Append(t.ID, fmt.Sprintf("[管理器] 进程已退出: %v", err))
+		} else {
+			m.logs.Append(t.ID, "[管理器] 进程已正常退出")
+		}
 		m.mu.Lock()
 		delete(m.procs, t.ID)
 		m.mu.Unlock()
 		done(err)
 	}()
 	return nil
+}
+
+func (m *ProcessManager) Running(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.procs[id]
+	return ok
 }
 
 func (m *ProcessManager) Stop(id string) error {
@@ -124,10 +138,22 @@ func (m *ProcessManager) StopAll() {
 }
 
 func (m *ProcessManager) Output(id string) string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if b := m.output[id]; b != nil {
-		return b.String()
+	lines := m.logs.Lines(id, 100)
+	texts := make([]string, 0, len(lines))
+	for _, line := range lines {
+		texts = append(texts, line.Text)
 	}
-	return ""
+	return strings.Join(texts, "\n")
+}
+
+func (m *ProcessManager) Logs(id string, limit int) []LogLine {
+	return m.logs.Lines(id, limit)
+}
+
+func (m *ProcessManager) AllLogs(limit int) []LogLine {
+	return m.logs.All(limit)
+}
+
+func (m *ProcessManager) AppendLog(id, text string) {
+	m.logs.Append(id, "[管理器] "+text)
 }
