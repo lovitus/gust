@@ -33,3 +33,24 @@ func TestFindGostUsesDedicatedBackendName(t *testing.T) {
 		t.Fatalf("FindGost() = %q, want %q", got, want)
 	}
 }
+
+func TestFormatCommandPreservesArgumentBoundaries(t *testing.T) {
+	got := FormatCommand([]string{"gost-qt", "-L", "tcp://:8080", "-F", "socks5://user name@example.test:1080", ""})
+	want := `gost-qt -L tcp://:8080 -F "socks5://user name@example.test:1080" ""`
+	if got != want {
+		t.Fatalf("FormatCommand() = %q, want %q", got, want)
+	}
+}
+
+func TestCommandPreviewShowsExpandedArguments(t *testing.T) {
+	got, err := CommandPreview("/opt/gust/gost-qt", Tunnel{
+		Name: "free", Mode: TunnelModeFree, Args: `-L tcp://:8080 -F "socks5://user name@example.test:1080"`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `/opt/gust/gost-qt -L tcp://:8080 -F "socks5://user name@example.test:1080"`
+	if got != want {
+		t.Fatalf("CommandPreview() = %q, want %q", got, want)
+	}
+}

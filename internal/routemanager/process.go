@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -56,6 +57,29 @@ func FindGost(explicit string) (string, error) {
 		return path, nil
 	}
 	return "", errors.New("找不到 gost-qt；请把 gost-qt 放在本程序同目录，或使用 --gost 指定")
+}
+
+func CommandPreview(binary string, tunnel Tunnel) (string, error) {
+	args, err := BuildArgs(tunnel)
+	if err != nil {
+		return "", err
+	}
+	return FormatCommand(append([]string{binary}, args...)), nil
+}
+
+func FormatCommand(argv []string) string {
+	formatted := make([]string, 0, len(argv))
+	for _, arg := range argv {
+		if arg != "" && strings.IndexFunc(arg, func(r rune) bool {
+			return !(r >= 'a' && r <= 'z') && !(r >= 'A' && r <= 'Z') &&
+				!(r >= '0' && r <= '9') && !strings.ContainsRune("_./:=,+@%-", r)
+		}) == -1 {
+			formatted = append(formatted, arg)
+		} else {
+			formatted = append(formatted, strconv.Quote(arg))
+		}
+	}
+	return strings.Join(formatted, " ")
 }
 
 func executableFile(path string) (string, error) {

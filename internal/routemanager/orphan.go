@@ -12,8 +12,10 @@ import (
 )
 
 type OrphanProcess struct {
-	PID       int32
-	StartedAt int64
+	PID         int32
+	StartedAt   int64
+	Executable  string
+	CommandLine string
 }
 
 func ScanOrphanProcesses(binary string, owned map[int32]struct{}) ([]OrphanProcess, error) {
@@ -37,7 +39,12 @@ func ScanOrphanProcesses(binary string, owned map[int32]struct{}) ([]OrphanProce
 		if err != nil || startedAt <= 0 {
 			continue
 		}
-		orphans = append(orphans, OrphanProcess{PID: candidate.Pid, StartedAt: startedAt})
+		executable, _ := candidate.Exe()
+		argv, _ := candidate.CmdlineSlice()
+		orphans = append(orphans, OrphanProcess{
+			PID: candidate.Pid, StartedAt: startedAt,
+			Executable: executable, CommandLine: FormatCommand(argv),
+		})
 	}
 	return orphans, nil
 }

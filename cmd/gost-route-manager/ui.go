@@ -195,7 +195,7 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 			c.stopTunnel(t.ID)
 			return
 		}
-		c.startTunnel(*t, true)
+		c.confirmStartTunnel(*t)
 	})
 	save := widget.NewButton("保存", func() {
 		if _, err := routemanager.BuildArgs(*t); err != nil {
@@ -413,6 +413,33 @@ func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 	c.render()
 }
 
+func (c *controller) confirmStartTunnel(t routemanager.Tunnel) {
+	if !isElevated() {
+		c.startTunnel(t, true)
+		return
+	}
+	if c.binErr != nil {
+		dialog.ShowError(c.binErr, c.window)
+		return
+	}
+	command, err := routemanager.CommandPreview(c.gostPath, t)
+	if err != nil {
+		dialog.ShowError(err, c.window)
+		return
+	}
+	content := previewContent(
+		"以下是将直接执行的文件和完整参数（不经过 shell）：",
+		command,
+		fyne.NewSize(780, 190),
+	)
+	confirm := dialog.NewCustomConfirm("确认运行 · "+t.Name, "运行", "取消", content, func(ok bool) {
+		if ok {
+			c.startTunnel(t, true)
+		}
+	}, c.window)
+	confirm.Show()
+}
+
 func (c *controller) rejectGuardedStart(id, status string, err error) {
 	c.desired[id] = false
 	c.cancelRestart(id)
@@ -549,9 +576,16 @@ func (c *controller) cleanupOrphans() {
 		return
 	}
 	targets := append([]routemanager.OrphanProcess(nil), c.orphans...)
-	confirm := dialog.NewConfirm(
-		"清理孤儿服务",
+	content := previewContent(
 		fmt.Sprintf("将停止并清理 %d 个故障遗留的 gost-qt 服务。不会影响名为 gost 的其他进程。", len(targets)),
+		formatOrphanPreview(targets),
+		fyne.NewSize(780, 280),
+	)
+	confirm := dialog.NewCustomConfirm(
+		"清理孤儿服务",
+		"清理",
+		"取消",
+		content,
 		func(ok bool) {
 			if !ok {
 				return
@@ -580,9 +614,42 @@ func (c *controller) cleanupOrphans() {
 		},
 		c.window,
 	)
-	confirm.SetConfirmText("清理")
 	confirm.SetConfirmImportance(widget.DangerImportance)
 	confirm.Show()
+}
+
+func previewContent(description, detail string, size fyne.Size) fyne.CanvasObject {
+	header := widget.NewLabel(description)
+	header.Wrapping = fyne.TextWrapWord
+	preview := widget.NewLabel(detail)
+	preview.Wrapping = fyne.TextWrapBreak
+	preview.TextStyle = fyne.TextStyle{Monospace: true}
+	scroll := container.NewVScroll(preview)
+	return container.NewVBox(header, container.NewGridWrap(size, scroll))
+}
+
+func formatOrphanPreview(targets []routemanager.OrphanProcess) string {
+	var out strings.Builder
+	for i, target := range targets {
+		if i > 0 {
+			out.WriteString("\n\n")
+		}
+		executable := strings.TrimSpace(target.Executable)
+		if executable == "" {
+			executable = "gost-qt（路径无法读取）"
+		}
+		command := strings.TrimSpace(target.CommandLine)
+		if command == "" {
+			command = executable
+		}
+		fmt.Fprintf(&out, "PID: %d\n启动时间: %s\n执行文件: %s\n命令: %s",
+			target.PID,
+			time.UnixMilli(target.StartedAt).Format("2006-01-02 15:04:05"),
+			executable,
+			command,
+		)
+	}
+	return out.String()
 }
 
 func (c *controller) refreshOrphans(notify bool) {

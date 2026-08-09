@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,18 @@ func TestNewTunnelUsesPlaceholdersInsteadOfPrefilledValues(t *testing.T) {
 	}
 	if tunnel.Name != "" || tunnel.Routes != "" || tunnel.Target != "" || tunnel.Mode != "" || tunnel.Args != "" {
 		t.Fatalf("new tunnel must be empty so placeholders remain placeholders: %+v", tunnel)
+	}
+}
+
+func TestFormatOrphanPreviewShowsIdentityAndCommand(t *testing.T) {
+	preview := formatOrphanPreview([]routemanager.OrphanProcess{{
+		PID: 42, StartedAt: time.Date(2026, 8, 9, 12, 34, 56, 0, time.Local).UnixMilli(),
+		Executable: "/opt/gust/gost-qt", CommandLine: "gost-qt -L tcp://:8080",
+	}})
+	for _, want := range []string{"PID: 42", "2026-08-09 12:34:56", "/opt/gust/gost-qt", "gost-qt -L tcp://:8080"} {
+		if !strings.Contains(preview, want) {
+			t.Fatalf("preview %q does not contain %q", preview, want)
+		}
 	}
 }
 
