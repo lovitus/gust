@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 	"github.com/go-gost/gost/internal/routemanager"
 )
 
@@ -61,6 +64,26 @@ func TestRestartBackoffIsBounded(t *testing.T) {
 		if got := restartBackoff(i + 1); got != expected {
 			t.Fatalf("attempt %d: got %s, want %s", i+1, got, expected)
 		}
+	}
+}
+
+func TestRefreshTunnelRowUpdatesOnlyStoredRowWidgets(t *testing.T) {
+	app := test.NewApp()
+	defer app.Quit()
+	status := container.NewStack(tunnelStatusBadge("已停止"))
+	run := widget.NewButton("运行", nil)
+	oldBadge := status.Objects[0]
+	c := &controller{
+		desired:  map[string]bool{"one": true},
+		statuses: map[string]string{"one": "运行中"},
+		rowViews: map[string]*tunnelRowView{"one": {status: status, run: run}},
+	}
+	c.refreshTunnelRow("one")
+	if run.Text != "停止" {
+		t.Fatalf("run button = %q, want 停止", run.Text)
+	}
+	if len(status.Objects) != 1 || status.Objects[0] == oldBadge {
+		t.Fatal("status badge was not replaced in place")
 	}
 }
 

@@ -33,6 +33,7 @@ type controller struct {
 	statuses      map[string]string
 	restarts      map[string]int
 	restartTimers map[string]*time.Timer
+	rowViews      map[string]*tunnelRowView
 	orphans       []routemanager.OrphanProcess
 	orphanErr     error
 	orphanBusy    bool
@@ -42,6 +43,11 @@ type controller struct {
 	binErr        error
 }
 
+type tunnelRowView struct {
+	status *fyne.Container
+	run    *widget.Button
+}
+
 func newController(a fyne.App, configPath, explicitGost string) *controller {
 	cfg, loadErr := routemanager.Load(configPath)
 	bin, binErr := routemanager.FindGost(explicitGost)
@@ -49,6 +55,7 @@ func newController(a fyne.App, configPath, explicitGost string) *controller {
 		app: a, configPath: configPath, gostPath: bin, config: cfg,
 		processes: routemanager.NewProcessManager(bin), running: map[string]bool{}, desired: map[string]bool{},
 		statuses: map[string]string{}, restarts: map[string]int{}, restartTimers: map[string]*time.Timer{},
+		rowViews:     map[string]*tunnelRowView{},
 		watchdogStop: make(chan struct{}), loadErr: loadErr, binErr: binErr,
 	}
 	c.window = a.NewWindow("自定义路由管理工具（类似 tun2socks）")
@@ -101,6 +108,7 @@ func (c *controller) restoreWindow() {
 }
 
 func (c *controller) render() {
+	c.rowViews = make(map[string]*tunnelRowView, len(c.config.Tunnels))
 	elevated := isElevated()
 	title := canvas.NewText("Gust 自定义路由管理", theme.Color(theme.ColorNameForeground))
 	title.TextSize = 22
@@ -183,14 +191,9 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 	name.SetPlaceHolder("例如：zwy")
 	name.OnChanged = func(value string) { t.Name = value }
 	parameters := c.tunnelParameters(t)
-	status := c.statuses[t.ID]
-	if status == "" {
-		status = "已停止"
-	}
-	runText := "运行"
-	if c.desired[t.ID] {
-		runText = "停止"
-	}
+	status := c.tunnelStatus(t.ID)
+	statusView := container.NewStack(tunnelStatusBadge(status))
+	runText := c.tunnelRunText(t.ID)
 	run := widget.NewButton(runText, func() {
 		if c.desired[t.ID] {
 			c.stopTunnel(t.ID)
@@ -208,7 +211,7 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 			return
 		}
 		c.statuses[t.ID] = "已保存"
-		c.render()
+		c.refreshTunnelRow(t.ID)
 	})
 	remove := widget.NewButton("删除", func() {
 		dialog.NewConfirm("删除记录", fmt.Sprintf("确定删除 %q？", t.Name), func(ok bool) {
@@ -221,10 +224,36 @@ func (c *controller) tunnelRow(index int) fyne.CanvasObject {
 	})
 	remove.Importance = widget.DangerImportance
 	viewLogs := widget.NewButton("日志", func() { c.showTunnelLogs(t.ID, t.Name) })
+	c.rowViews[t.ID] = &tunnelRowView{status: statusView, run: run}
 	return container.NewHBox(
-		fixed(140, name), fixed(90, tunnelStatusBadge(status)), fixed(590, parameters),
+		fixed(140, name), fixed(90, statusView), fixed(590, parameters),
 		container.NewHBox(run, save, viewLogs, remove),
 	)
+}
+
+func (c *controller) tunnelStatus(id string) string {
+	if status := c.statuses[id]; status != "" {
+		return status
+	}
+	return "已停止"
+}
+
+func (c *controller) tunnelRunText(id string) string {
+	if c.desired[id] {
+		return "停止"
+	}
+	return "运行"
+}
+
+func (c *controller) refreshTunnelRow(id string) {
+	view := c.rowViews[id]
+	if view == nil {
+		return
+	}
+	view.status.RemoveAll()
+	view.status.Add(tunnelStatusBadge(c.tunnelStatus(id)))
+	view.status.Refresh()
+	view.run.SetText(c.tunnelRunText(id))
 }
 
 const (
@@ -279,7 +308,8 @@ func tunnelStatusBadge(status string) fyne.CanvasObject {
 	case status == "运行中":
 		foreground = color.NRGBA{R: 19, G: 119, B: 72, A: 255}
 		background = color.NRGBA{R: 230, G: 248, B: 237, A: 255}
-	case status == "错误" || status == "配置错误" || status == "程序缺失":
+	case status == "错误" || status == "配置错误" || status == "程序缺失" ||
+		strings.Contains(status, "失败") || strings.Contains(status, "占用"):
 		foreground = color.NRGBA{R: 180, G: 35, B: 24, A: 255}
 		background = color.NRGBA{R: 254, G: 236, B: 234, A: 255}
 	case status == "启动中" || status == "停止中" || strings.Contains(status, "重启"):
@@ -379,14 +409,14 @@ func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 	}
 	c.desired[t.ID] = true
 	c.statuses[t.ID] = "启动中"
-	c.render()
+	c.refreshTunnelRow(t.ID)
 	startedAt := time.Now()
 	err := c.processes.Start(t, func(err error) {
 		fyne.Do(func() {
 			c.running[t.ID] = false
 			if !c.desired[t.ID] {
 				c.statuses[t.ID] = "已停止"
-				c.render()
+				c.refreshTunnelRow(t.ID)
 				return
 			}
 			if time.Since(startedAt) >= 30*time.Second {
@@ -408,7 +438,7 @@ func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 				dialog.ShowError(fmt.Errorf("隧道 %s 启动失败，将在 %s 后重试：%s", t.Name, delay, summary), c.window)
 			}
 			c.scheduleRestart(t.ID, delay)
-			c.render()
+			c.refreshTunnelRow(t.ID)
 		})
 	})
 	if err != nil {
@@ -420,7 +450,7 @@ func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 		delay := restartBackoff(c.restarts[t.ID])
 		c.statuses[t.ID] = fmt.Sprintf("%s 后重启", delay)
 		c.scheduleRestart(t.ID, delay)
-		c.render()
+		c.refreshTunnelRow(t.ID)
 		if notify {
 			dialog.ShowError(err, c.window)
 		}
@@ -428,7 +458,7 @@ func (c *controller) startTunnel(t routemanager.Tunnel, notify bool) {
 	}
 	c.running[t.ID] = true
 	c.statuses[t.ID] = "运行中"
-	c.render()
+	c.refreshTunnelRow(t.ID)
 }
 
 func (c *controller) stopRestartingAfterFailure(t routemanager.Tunnel, status, summary string) {
@@ -436,7 +466,7 @@ func (c *controller) stopRestartingAfterFailure(t routemanager.Tunnel, status, s
 	c.cancelRestart(t.ID)
 	c.statuses[t.ID] = status + "（守护已停止）"
 	c.processes.AppendLog(t.ID, "守护已停止: "+summary)
-	c.render()
+	c.refreshTunnelRow(t.ID)
 	dialog.ShowError(fmt.Errorf("隧道 %s：%s。请修正后重新运行。", t.Name, summary), c.window)
 }
 
@@ -484,7 +514,7 @@ func (c *controller) rejectGuardedStart(id, status string, err error) {
 		message += ": " + err.Error()
 	}
 	c.processes.AppendLog(id, message)
-	c.render()
+	c.refreshTunnelRow(id)
 }
 
 func restartBackoff(attempt int) time.Duration {
@@ -501,16 +531,20 @@ func (c *controller) stopTunnel(id string) {
 	c.desired[id] = false
 	c.cancelRestart(id)
 	c.statuses[id] = "停止中"
-	c.render()
+	c.refreshTunnelRow(id)
 	go func() {
 		if err := c.processes.Stop(id); err != nil {
-			fyne.Do(func() { dialog.ShowError(err, c.window) })
+			fyne.Do(func() {
+				c.statuses[id] = "停止失败"
+				c.refreshTunnelRow(id)
+				dialog.ShowError(err, c.window)
+			})
 			return
 		}
 		fyne.Do(func() {
 			c.running[id] = false
 			c.statuses[id] = "已停止"
-			c.render()
+			c.refreshTunnelRow(id)
 		})
 	}()
 }
@@ -560,7 +594,7 @@ func (c *controller) startWatchdog() {
 						if desired && !c.processes.Running(id) && c.restartTimers[id] == nil {
 							c.statuses[id] = "守护重启中"
 							c.scheduleRestart(id, 0)
-							c.render()
+							c.refreshTunnelRow(id)
 						}
 					}
 				})
@@ -576,19 +610,23 @@ func (c *controller) stopAll() error {
 		for id := range c.desired {
 			c.desired[id] = false
 			c.cancelRestart(id)
+			c.statuses[id] = "停止中"
+			c.refreshTunnelRow(id)
 		}
 	})
 	err := c.processes.StopAll()
 	fyne.Do(func() {
-		for id := range c.running {
+		for _, tunnel := range c.config.Tunnels {
+			id := tunnel.ID
 			if c.processes.Running(id) {
 				c.statuses[id] = "停止失败"
+				c.refreshTunnelRow(id)
 				continue
 			}
 			c.running[id] = false
 			c.statuses[id] = "已停止"
+			c.refreshTunnelRow(id)
 		}
-		c.render()
 	})
 	return err
 }
