@@ -61,3 +61,36 @@ func TestLogBufferVersionsChangeOnlyWhenACompleteLineIsAdded(t *testing.T) {
 		t.Fatal("per-task and global versions are not independent")
 	}
 }
+
+func TestLogBufferClearTaskAlsoRemovesItFromGlobalView(t *testing.T) {
+	b := NewLogBuffer(10, 10)
+	b.Append("one", "one-a")
+	b.Append("two", "two-a")
+	taskVersion := b.Version("one")
+	allVersion := b.AllVersion()
+	b.Clear("one")
+	if got := b.Lines("one", 10); len(got) != 0 {
+		t.Fatalf("task logs remain after clear: %#v", got)
+	}
+	global := b.All(10)
+	if len(global) != 1 || global[0].TunnelID != "two" {
+		t.Fatalf("global logs after task clear: %#v", global)
+	}
+	if b.Version("one") <= taskVersion || b.AllVersion() <= allVersion {
+		t.Fatal("clear must advance task and global versions")
+	}
+}
+
+func TestLogBufferClearAllAdvancesOpenViewVersions(t *testing.T) {
+	b := NewLogBuffer(10, 10)
+	b.Append("one", "one-a")
+	taskVersion := b.Version("one")
+	allVersion := b.AllVersion()
+	b.ClearAll()
+	if len(b.Lines("one", 10)) != 0 || len(b.All(10)) != 0 {
+		t.Fatal("logs remain after clear all")
+	}
+	if b.Version("one") <= taskVersion || b.AllVersion() <= allVersion {
+		t.Fatal("clear all must advance versions")
+	}
+}

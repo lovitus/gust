@@ -737,6 +737,7 @@ func (c *controller) showTunnelLogs(id, name string) {
 			lines, version := c.processes.LogsSnapshot(id, 100)
 			return formatLogs(lines, nil), version
 		},
+		func() { c.processes.ClearLogs(id) },
 	)
 }
 
@@ -752,21 +753,32 @@ func (c *controller) showAllLogs() {
 			lines, version := c.processes.AllLogsSnapshot(1000)
 			return formatLogs(lines, names), version
 		},
+		c.processes.ClearAllLogs,
 	)
 }
 
-func (c *controller) showLogs(title string, version func() uint64, load func() (string, uint64)) {
+func (c *controller) showLogs(title string, version func() uint64, load func() (string, uint64), clearLogs func()) {
 	view := widget.NewMultiLineEntry()
 	view.Wrapping = fyne.TextWrapOff
+	view.Scroll = fyne.ScrollBoth
 	current := ""
 	var currentVersion atomic.Uint64
 	updating := false
-	setText := func() {
+	moveToEnd := func() {
+		rows := strings.Split(current, "\n")
+		view.CursorRow = len(rows) - 1
+		view.CursorColumn = len([]rune(rows[len(rows)-1]))
+		view.Refresh()
+	}
+	setText := func(moveToTail bool) {
 		text, loadedVersion := load()
 		updating = true
 		current = text
 		currentVersion.Store(loadedVersion)
 		view.SetText(current)
+		if moveToTail {
+			moveToEnd()
+		}
 		updating = false
 	}
 	view.OnChanged = func(value string) {
@@ -777,12 +789,24 @@ func (c *controller) showLogs(title string, version func() uint64, load func() (
 		view.SetText(current)
 		updating = false
 	}
-	setText()
+	setText(true)
 	content := container.NewGridWrap(fyne.NewSize(900, 460), view)
 	d := dialog.NewCustomWithoutButtons(title, content, c.window)
-	refresh := widget.NewButtonWithIcon("刷新", theme.ViewRefreshIcon(), setText)
+	refresh := widget.NewButtonWithIcon("刷新并到底部", theme.ViewRefreshIcon(), func() { setText(true) })
+	clearButton := widget.NewButtonWithIcon("清空", theme.DeleteIcon(), func() {
+		confirm := dialog.NewConfirm("清空日志", "确定清空当前页面对应的内存日志？该操作不会停止隧道。", func(ok bool) {
+			if !ok {
+				return
+			}
+			clearLogs()
+			setText(true)
+		}, c.window)
+		confirm.SetConfirmImportance(widget.DangerImportance)
+		confirm.Show()
+	})
+	clearButton.Importance = widget.DangerImportance
 	closeButton := widget.NewButton("关闭", d.Hide)
-	d.SetButtons([]fyne.CanvasObject{refresh, closeButton})
+	d.SetButtons([]fyne.CanvasObject{clearButton, refresh, closeButton})
 	done := make(chan struct{})
 	var stopOnce sync.Once
 	d.SetOnClosed(func() { stopOnce.Do(func() { close(done) }) })
@@ -803,7 +827,7 @@ func (c *controller) showLogs(title string, version func() uint64, load func() (
 					default:
 					}
 					if version() != currentVersion.Load() {
-						setText()
+						setText(true)
 					}
 				})
 			case <-done:

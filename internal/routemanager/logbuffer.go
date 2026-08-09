@@ -136,6 +136,34 @@ func (b *LogBuffer) AllSnapshot(limit int) ([]LogLine, uint64) {
 	return b.all.tail(limit), b.version
 }
 
+func (b *LogBuffer) Clear(id string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	delete(b.per, id)
+	delete(b.partial, id)
+	b.versions[id]++
+	kept := b.all.tail(len(b.all.lines))
+	b.all = newLineRing(len(b.all.lines))
+	for _, line := range kept {
+		if line.TunnelID != id {
+			b.all.append(line)
+		}
+	}
+	b.version++
+}
+
+func (b *LogBuffer) ClearAll() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.per = make(map[string]*lineRing)
+	b.partial = make(map[string]string)
+	for id := range b.versions {
+		b.versions[id]++
+	}
+	b.all = newLineRing(len(b.all.lines))
+	b.version++
+}
+
 type lineRing struct {
 	lines []LogLine
 	next  int

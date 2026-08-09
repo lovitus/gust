@@ -259,3 +259,11 @@ func (m *ProcessManager) AllLogsSnapshot(limit int) ([]LogLine, uint64) {
 func (m *ProcessManager) AppendLog(id, text string) {
 	m.logs.Append(id, "[管理器] "+text)
 }
+
+func (m *ProcessManager) ClearLogs(id string) {
+	m.logs.Clear(id)
+}
+
+func (m *ProcessManager) ClearAllLogs() {
+	m.logs.ClearAll()
+}
