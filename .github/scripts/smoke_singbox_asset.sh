@@ -110,11 +110,27 @@ if python3 -c 'import json,sys; sys.exit("naive_outbound" in json.load(open(sys.
       >"${naive_log}" 2>&1
   ) &
   naive_pid=$!
-  sleep 2
-  if ! kill -0 "${naive_pid}" 2>/dev/null; then
+  naive_exited=false
+  naive_status=0
+  for _ in {1..40}; do
+    if ! kill -0 "${naive_pid}" 2>/dev/null; then
+      if wait "${naive_pid}"; then naive_status=0; else naive_status=$?; fi
+      naive_exited=true
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "${naive_exited}" != true ]]; then
     cat "${naive_log}" >&2
-    echo "Naive runtime exited during native asset smoke" >&2
+    stop_processes "${naive_pid}"
+    echo "Naive runtime did not fail closed within 10 seconds" >&2
     exit 1
   fi
-  stop_processes "${naive_pid}"
+  if [[ "${naive_status}" -eq 0 ]] || ! grep -F \
+    'naive outbound requires an IPC or loopback socket bridge in the pinned native runtime and is not supported by the embedded backend' \
+    "${naive_log}"; then
+    cat "${naive_log}" >&2
+    echo "Naive runtime did not return the certified fail-closed policy error (status ${naive_status})" >&2
+    exit 1
+  fi
 fi

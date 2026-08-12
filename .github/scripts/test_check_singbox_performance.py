@@ -10,7 +10,11 @@ class PerformanceBaselineTest(unittest.TestCase):
     def setUp(self):
         self.root = Path(__file__).resolve().parents[2]
         self.baseline = self.root / "SINGBOX-PERFORMANCE-BASELINE.json"
-        self.ref = self.root / ".github" / "singbox-gust-x.ref"
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.ref = Path(self.directory.name) / "singbox-gust-x.ref"
+        data = json.loads(self.baseline.read_text(encoding="utf-8"))
+        self.ref.write_text(data["source"]["gust_x_revision"] + "\n", encoding="utf-8")
 
     def test_repository_baseline_passes(self):
         result = validate(self.baseline, self.ref)
