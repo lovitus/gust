@@ -10,6 +10,8 @@ replace github.com/sagernet/sing-box => github.com/lovitus/sing-box v1.13.17-0.2
 
 replace github.com/sagernet/sing-vmess => github.com/lovitus/sing-vmess v0.2.8-0.20260811104156-1b9f30f9d98e
 
+replace github.com/go-gost/core => github.com/lovitus/core v0.6.1-0.20260811040936-6474e707cba7
+
 require (
 	github.com/go-gost/core v0.6.0
 	github.com/go-gost/x v0.15.2

@@ -16,6 +16,15 @@ on:
         description: gust-x branch to validate with this gust branch
         required: false
         default: singbox-backend
+      policy_target:
+        description: release branch policy to enforce for this candidate
+        required: false
+        type: choice
+        options:
+          - master
+          - singbox-backend
+          - qtui-route-manage
+        default: singbox-backend
 
 permissions:
   contents: read
@@ -75,7 +84,7 @@ jobs:
       - name: Enforce branch policy
         shell: bash
         env:
-          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+          TARGET_BRANCH: ${{ github.event.inputs.policy_target || github.base_ref || github.ref_name }}
         run: |
           policy_branch="${TARGET_BRANCH}"
           case "${policy_branch}" in
@@ -332,7 +341,7 @@ jobs:
 
       - name: Enforce branch policy
         env:
-          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+          TARGET_BRANCH: ${{ github.event.inputs.policy_target || github.base_ref || github.ref_name }}
         run: |
           policy_branch="${TARGET_BRANCH}"
           case "${policy_branch}" in
