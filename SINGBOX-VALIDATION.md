@@ -258,24 +258,24 @@ SHA-256 are recorded in the baseline file.
 
 | Comparison | Official median | Gust median | Ratio | Gate | Result |
 |---|---:|---:|---:|---:|---:|
-| TCP throughput, 64 KiB echo | 676.05 MB/s | 680.63 MB/s | 100.68% | >=90% | PASS |
-| UDP PPS, 1200-byte echo | 10,942 PPS | 10,876 PPS | 99.39% | >=90% | PASS |
-| TCP round-trip p95 / p99 | 106.929 / 116.847 us | 107.037 / 118.298 us | 100.10% / 101.24% | <=110% | PASS |
-| UDP round-trip p95 / p99 | 105.841 / 119.079 us | 106.202 / 121.429 us | 100.34% / 101.97% | <=110% | PASS |
-| Internal egress UDP write | n/a | 151.1 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
-| Retained runtime handle | 198.70 us decode/construct | 225.1 ns/op | 0.11%, 80 B, 1 alloc | <=1%, <=96 B, <=1 alloc | PASS |
-| Route-scope cache hit | n/a | 263.8 ns/op | 80 B, 1 alloc | <=96 B, <=1 alloc | PASS |
+| TCP throughput, 64 KiB echo | 680.28 MB/s | 678.69 MB/s | 99.77% | >=90% | PASS |
+| UDP PPS, 1200-byte echo | 10,918 PPS | 10,871 PPS | 99.57% | >=90% | PASS |
+| TCP round-trip p95 / p99 | 107.564 / 117.126 us | 107.459 / 116.604 us | 99.90% / 99.55% | <=110% | PASS |
+| UDP round-trip p95 / p99 | 105.379 / 117.839 us | 105.491 / 116.144 us | 100.11% / 98.56% | <=110% | PASS |
+| Internal egress UDP write | n/a | 150.6 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
+| Retained runtime handle | 200.15 us decode/construct | 225.3 ns/op | 0.11%, 80 B, 1 alloc | <=1%, <=96 B, <=1 alloc | PASS |
+| Route-scope cache hit | n/a | 264.1 ns/op | 80 B, 1 alloc | <=96 B, <=1 alloc | PASS |
 | Direct / proxy packet read | n/a | 0 B/0 allocs; 24 B/1 alloc | no payload-scaled allocation | <=0/0; <=64 B/1 | PASS |
-| Fixed-port reload pause | n/a | 3.56 ms median, 3.59 ms p95 | n/a | p95 <=5 ms | PASS |
+| Fixed-port reload pause | n/a | 3.57 ms median, 3.58 ms p95 | n/a | p95 <=5 ms | PASS |
 
 Resource medians for the one-Box-per-`-L` baseline:
 
 | Boxes | Startup | Live heap delta | Goroutine delta | FD delta | Median max RSS |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 5.16 ms | 312,240 B | 8 | 4 | 19,750,912 B |
-| 2 | 8.32 ms | 611,576 B | 16 | 8 | 20,496,384 B |
-| 10 | 33.31 ms | 3,006,872 B | 80 | 40 | 24,260,608 B |
-| 50 | 208.60 ms | 14,983,816 B | 400 | 200 | 41,869,312 B |
+| 1 | 5.37 ms | 312,176 B | 8 | 4 | 19,836,928 B |
+| 2 | 8.39 ms | 612,168 B | 16 | 8 | 20,439,040 B |
+| 10 | 32.90 ms | 3,007,672 B | 80 | 40 | 24,272,896 B |
+| 50 | 207.96 ms | 14,982,824 B | 400 | 200 | 41,979,904 B |
 
 Every one of the 20 fresh-process resource samples returned goroutine and FD
 counts exactly to its pre-start baseline after Close. These numbers prove the
@@ -284,9 +284,10 @@ they are not WAN or encrypted-protocol performance claims.
 
 The checker also compares this candidate with the previous accepted baseline,
 whose source revision, medians and baseline-file SHA-256 are retained in the
-new record. TCP throughput changed by -2.10%, UDP PPS by -0.12%, and the worst
-p95/p99 round-trip change was +2.47%. The worst startup, live-heap or RSS
-median change was +3.26%; all remain inside their checked 5% or 10% limits.
+new record. TCP throughput changed by -0.29%, UDP operation time by +0.04%,
+and the worst p95/p99 round-trip change was -4.35%. The worst startup,
+live-heap or RSS median change was +4.12%; all remain inside their checked 5%
+or 10% limits.
 
 ### Supplemental non-gating performance health check
 
