@@ -409,9 +409,14 @@ python3 .github/scripts/check_doc_privacy.py \
 
 ## Certification evidence
 
-- Required Go CI: [run 31264723529](https://github.com/lovitus/gust/actions/runs/31264723529)
-- Pinned/latest compatibility: [run 31264438740](https://github.com/lovitus/gust/actions/runs/31264438740)
-- Six-platform build-only release rehearsal: [run 31265090521](https://github.com/lovitus/gust/actions/runs/31265090521)
+- Final required Go CI (19/19): [run 31646252480](https://github.com/lovitus/gust/actions/runs/31646252480)
+- Pinned/latest compatibility on the code-identical parent: [run 31644445447](https://github.com/lovitus/gust/actions/runs/31644445447)
+- Matching gust-x `singbox-backend` branch policy: [run 31644441656](https://github.com/lovitus/gust-x/actions/runs/31644441656)
+- Earlier six-platform build-only release rehearsal: [run 31265090521](https://github.com/lovitus/gust/actions/runs/31265090521)
+
+The local recovery package records exact permanent branch refs, fixed-runner
+performance evidence and any later documentation-only branch CI without
+embedding maintainer-private runner metadata in this repository.
 
 The acceptance matrix is PASS. Publishing still requires a clean pushed source
 branch and an `singbox-v*` tag contained in `origin/singbox-backend`; the tag
