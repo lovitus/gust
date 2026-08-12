@@ -20,6 +20,9 @@ on:
 permissions:
   contents: read
 
+env:
+  GONOSUMDB: github.com/lovitus/sing,github.com/lovitus/sing-box,github.com/lovitus/sing-vmess
+
 jobs:
   test:
     name: test / ${{ matrix.suite }}
@@ -73,7 +76,12 @@ jobs:
         shell: bash
         env:
           TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: bash .github/scripts/check_branch_policy.sh "${TARGET_BRANCH}" ../gust-x
+        run: |
+          policy_branch="${TARGET_BRANCH}"
+          case "${policy_branch}" in
+            codex/singbox-*) policy_branch=singbox-backend ;;
+          esac
+          bash .github/scripts/check_branch_policy.sh "${policy_branch}" ../gust-x
 
       - name: Validate PowerShell build script syntax
         if: ${{ matrix.suite == 'core' }}
@@ -294,7 +302,12 @@ jobs:
       - name: Enforce branch policy
         env:
           TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: bash .github/scripts/check_branch_policy.sh "${TARGET_BRANCH}" ../gust-x
+        run: |
+          policy_branch="${TARGET_BRANCH}"
+          case "${policy_branch}" in
+            codex/singbox-*) policy_branch=singbox-backend ;;
+          esac
+          bash .github/scripts/check_branch_policy.sh "${policy_branch}" ../gust-x
 
       - name: Run bounded Docker E2E suite
         env:
