@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import statistics
 from pathlib import Path
 
@@ -18,9 +19,38 @@ def percentile(values: list[float], quantile: float) -> float:
 def require_samples(values: object, name: str) -> list[float]:
     if not isinstance(values, list) or len(values) < 5:
         raise ValueError(f"{name} must contain at least five samples")
-    if any(not isinstance(value, (int, float)) or value < 0 for value in values):
+    if any(
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+        or value < 0
+        for value in values
+    ):
         raise ValueError(f"{name} contains an invalid sample")
     return [float(value) for value in values]
+
+
+def require_median(value: object, name: str) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+        or value < 0
+    ):
+        raise ValueError(f"{name} must be a finite non-negative number")
+    return float(value)
+
+
+def regression(current: float, previous: float, name: str) -> float:
+    if not math.isfinite(previous) or not math.isfinite(current):
+        raise ValueError(f"{name} contains a non-finite median")
+    if previous < 0 or current < 0:
+        raise ValueError(f"{name} contains a negative median")
+    if previous == 0:
+        if current != 0:
+            raise ValueError(f"{name} regressed from zero to {current}")
+        return 0.0
+    return current / previous - 1.0
 
 
 def validate(baseline_path: Path, ref_path: Path) -> dict[str, float]:
@@ -127,6 +157,65 @@ def validate(baseline_path: Path, ref_path: Path) -> dict[str, float]:
                     f"{network.upper()} {quantile} latency ratio {ratio:.4f} failed"
                 )
 
+    previous = baseline.get("previous_accepted")
+    if not isinstance(previous, dict):
+        raise ValueError("performance baseline must identify the previous accepted baseline")
+    if not isinstance(previous.get("source_revision"), str) or not re.fullmatch(
+        r"[0-9a-f]{40}", previous["source_revision"]
+    ):
+        raise ValueError("previous accepted baseline must identify its source revision")
+    if not isinstance(previous.get("baseline_sha256"), str) or not re.fullmatch(
+        r"[0-9a-f]{64}", previous["baseline_sha256"]
+    ):
+        raise ValueError("previous accepted baseline must identify its SHA-256")
+    previous_benchmarks = previous.get("benchmarks")
+    if not isinstance(previous_benchmarks, dict):
+        raise ValueError("previous accepted benchmark medians are missing")
+    previous_tcp_rate = require_median(
+        previous_benchmarks.get("tcp_gust_median_mb_per_second"),
+        "previous accepted TCP throughput median",
+    )
+    previous_udp_ns = require_median(
+        previous_benchmarks.get("udp_gust_median_ns_per_op"),
+        "previous accepted UDP latency median",
+    )
+    if previous_tcp_rate == 0 or statistics.median(udp_gust_ns) == 0:
+        raise ValueError("throughput baselines must be positive")
+    tcp_regression = 1.0 - statistics.median(tcp_gust_rate) / previous_tcp_rate
+    udp_regression = 1.0 - previous_udp_ns / statistics.median(udp_gust_ns)
+    if tcp_regression > gates["accepted_baseline_throughput_or_pps_regression_max"]:
+        raise ValueError(f"accepted-baseline TCP throughput regression {tcp_regression:.4f} failed")
+    if udp_regression > gates["accepted_baseline_throughput_or_pps_regression_max"]:
+        raise ValueError(f"accepted-baseline UDP PPS regression {udp_regression:.4f} failed")
+    previous_latency = previous.get("latency")
+    if not isinstance(previous_latency, dict):
+        raise ValueError("previous accepted latency medians are missing")
+    for network in ("tcp", "udp"):
+        for quantile in ("p95_ns", "p99_ns"):
+            current = statistics.median(
+                require_samples(
+                    baseline["latency_round_trip"][network]["gust"][quantile],
+                    f"{network.upper()} latency Gust {quantile}",
+                )
+            )
+            change = regression(
+                current,
+                require_median(
+                    previous_latency.get(network, {}).get(quantile)
+                    if isinstance(previous_latency.get(network), dict)
+                    else None,
+                    f"previous accepted {network.upper()} {quantile}",
+                ),
+                f"accepted-baseline {network.upper()} {quantile}",
+            )
+            if change > gates["accepted_baseline_p95_p99_regression_max"]:
+                raise ValueError(
+                    f"accepted-baseline {network.upper()} {quantile} regression {change:.4f} failed"
+                )
+
+    previous_resources = previous.get("resources")
+    if not isinstance(previous_resources, dict):
+        raise ValueError("previous accepted resource medians are missing")
     for count in ("1", "2", "10", "50"):
         resource = baseline["resources"].get(count)
         if not isinstance(resource, dict):
@@ -145,6 +234,28 @@ def validate(baseline_path: Path, ref_path: Path) -> dict[str, float]:
             raise ValueError(f"{count}-Box goroutines did not return to baseline")
         if max(resource["fd_after_close_delta"]) > gates["goroutine_or_fd_after_close_delta_max"]:
             raise ValueError(f"{count}-Box file descriptors did not return to baseline")
+        previous_resource = previous_resources.get(count)
+        if not isinstance(previous_resource, dict):
+            raise ValueError(f"previous accepted {count}-Box resource medians are missing")
+        for field in (
+            "startup_ns",
+            "heap_live_delta_bytes",
+            "goroutine_live_delta",
+            "fd_live_delta",
+            "max_rss_bytes",
+        ):
+            change = regression(
+                statistics.median(require_samples(resource[field], f"{count}-Box {field}")),
+                require_median(
+                    previous_resource.get(field),
+                    f"previous accepted {count}-Box {field}",
+                ),
+                f"accepted-baseline {count}-Box {field}",
+            )
+            if change > gates["resource_median_regression_max"]:
+                raise ValueError(
+                    f"accepted-baseline {count}-Box {field} regression {change:.4f} failed"
+                )
 
     return {
         "tcp_ratio": tcp_ratio,
@@ -152,6 +263,8 @@ def validate(baseline_path: Path, ref_path: Path) -> dict[str, float]:
         "udp_pps_ratio": udp_pps_ratio,
         "udp_p95_ratio": udp_p95_ratio,
         "retained_runtime_ratio": retained_ratio,
+        "accepted_tcp_regression": tcp_regression,
+        "accepted_udp_regression": udp_regression,
         **latency_ratios,
     }
 

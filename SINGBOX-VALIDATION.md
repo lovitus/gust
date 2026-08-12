@@ -246,36 +246,47 @@ ordinary platform runs.
 
 Raw five-sample results and the release thresholds are checked in at
 `SINGBOX-PERFORMANCE-BASELINE.json`. The runner is identified generically;
-private infrastructure addresses are intentionally excluded.
+private infrastructure addresses are intentionally excluded. The values below
+qualify the current fork-pin candidate; they do not replace the certified
+`singbox-v3.2.12` release record at the top of this document until the candidate
+branch completes its required workflows and is promoted.
 
 Environment: Linux amd64, Intel Xeon E5-2620 v4, GOMAXPROCS=2, Go 1.26.5,
-sing-box v1.13.16, full feature tags, CGO disabled, loopback MTU 65536.
+sing-box `v1.13.17-0.20260811025254-2926c94dd073`, full feature tags, CGO
+disabled, loopback MTU 65536. The exact gust-x source revision and test-binary
+SHA-256 are recorded in the baseline file.
 
 | Comparison | Official median | Gust median | Ratio | Gate | Result |
 |---|---:|---:|---:|---:|---:|
-| TCP throughput, 64 KiB echo | 695.73 MB/s | 695.25 MB/s | 99.93% | >=90% | PASS |
-| UDP PPS, 1200-byte echo | 10,827 PPS | 10,889 PPS | 100.56% | >=90% | PASS |
-| TCP round-trip p95 / p99 | 107.096 / 117.924 us | 107.265 / 123.922 us | 100.16% / 105.09% | <=110% | PASS |
-| UDP round-trip p95 / p99 | 107.819 / 123.213 us | 108.228 / 118.506 us | 100.38% / 96.18% | <=110% | PASS |
-| Internal egress UDP write | n/a | 151.6 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
-| Retained runtime handle | 66.83 us decode/construct | 221.4 ns/op | 0.33%, 80 B, 1 alloc | <=1%, <=96 B, <=1 alloc | PASS |
-| Route-scope cache hit | n/a | 257.0 ns/op | 80 B, 1 alloc | <=96 B, <=1 alloc | PASS |
+| TCP throughput, 64 KiB echo | 676.05 MB/s | 680.63 MB/s | 100.68% | >=90% | PASS |
+| UDP PPS, 1200-byte echo | 10,942 PPS | 10,876 PPS | 99.39% | >=90% | PASS |
+| TCP round-trip p95 / p99 | 106.929 / 116.847 us | 107.037 / 118.298 us | 100.10% / 101.24% | <=110% | PASS |
+| UDP round-trip p95 / p99 | 105.841 / 119.079 us | 106.202 / 121.429 us | 100.34% / 101.97% | <=110% | PASS |
+| Internal egress UDP write | n/a | 151.1 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
+| Retained runtime handle | 198.70 us decode/construct | 225.1 ns/op | 0.11%, 80 B, 1 alloc | <=1%, <=96 B, <=1 alloc | PASS |
+| Route-scope cache hit | n/a | 263.8 ns/op | 80 B, 1 alloc | <=96 B, <=1 alloc | PASS |
 | Direct / proxy packet read | n/a | 0 B/0 allocs; 24 B/1 alloc | no payload-scaled allocation | <=0/0; <=64 B/1 | PASS |
-| Fixed-port reload pause | n/a | 3.77 ms median, 3.78 ms p95 | n/a | p95 <=5 ms | PASS |
+| Fixed-port reload pause | n/a | 3.56 ms median, 3.59 ms p95 | n/a | p95 <=5 ms | PASS |
 
 Resource medians for the one-Box-per-`-L` baseline:
 
 | Boxes | Startup | Live heap delta | Goroutine delta | FD delta | Median max RSS |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 5.11 ms | 305,192 B | 8 | 4 | 19,361,792 B |
-| 2 | 8.06 ms | 609,712 B | 16 | 8 | 20,131,840 B |
-| 10 | 33.42 ms | 3,078,624 B | 80 | 40 | 23,814,144 B |
-| 50 | 218.10 ms | 15,203,952 B | 400 | 200 | 41,123,840 B |
+| 1 | 5.16 ms | 312,240 B | 8 | 4 | 19,750,912 B |
+| 2 | 8.32 ms | 611,576 B | 16 | 8 | 20,496,384 B |
+| 10 | 33.31 ms | 3,006,872 B | 80 | 40 | 24,260,608 B |
+| 50 | 208.60 ms | 14,983,816 B | 400 | 200 | 41,869,312 B |
 
 Every one of the 20 fresh-process resource samples returned goroutine and FD
 counts exactly to its pre-start baseline after Close. These numbers prove the
 direct integration boundary meets the release thresholds on the fixed runner;
 they are not WAN or encrypted-protocol performance claims.
+
+The checker also compares this candidate with the previous accepted baseline,
+whose source revision, medians and baseline-file SHA-256 are retained in the
+new record. TCP throughput changed by -2.10%, UDP PPS by -0.12%, and the worst
+p95/p99 round-trip change was +2.47%. The worst startup, live-heap or RSS
+median change was +3.26%; all remain inside their checked 5% or 10% limits.
 
 ### Supplemental non-gating performance health check
 

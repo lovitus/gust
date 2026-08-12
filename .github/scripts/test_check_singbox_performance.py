@@ -50,6 +50,25 @@ class PerformanceBaselineTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "proxy packet read byte budget"):
                 validate(candidate, self.ref)
 
+    def test_previous_accepted_throughput_regression_fails(self):
+        data = json.loads(self.baseline.read_text(encoding="utf-8"))
+        data["benchmarks"]["tcp"]["official"]["mb_per_second"] = [600.0] * 5
+        data["benchmarks"]["tcp"]["gust"]["mb_per_second"] = [600.0] * 5
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / "baseline.json"
+            candidate.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "accepted-baseline TCP throughput regression"):
+                validate(candidate, self.ref)
+
+    def test_previous_accepted_resource_regression_fails(self):
+        data = json.loads(self.baseline.read_text(encoding="utf-8"))
+        data["resources"]["1"]["heap_live_delta_bytes"] = [400000] * 5
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / "baseline.json"
+            candidate.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "accepted-baseline 1-Box heap_live_delta_bytes"):
+                validate(candidate, self.ref)
+
 
 if __name__ == "__main__":
     unittest.main()
