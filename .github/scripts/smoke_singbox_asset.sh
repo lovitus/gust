@@ -22,6 +22,9 @@ grep -F 'flavor=singbox' "${asset_root}/smoke-version.txt"
 "${binary}" -singboxmanual > "${asset_root}/smoke-singbox-manual.txt"
 grep -F '# Gust embedded sing-box manual' "${asset_root}/smoke-singbox-manual.txt"
 grep -F '## CLI configuration' "${asset_root}/smoke-singbox-manual.txt"
+grep -F '## Nine-protocol example menu' "${asset_root}/smoke-singbox-manual.txt"
+grep -F 'gost-json-only-nine-server.json' "${asset_root}/smoke-singbox-manual.txt"
+grep -F 'gost-json-only-nine-client.json' "${asset_root}/smoke-singbox-manual.txt"
 grep -F '## Gust JSON configuration' "${asset_root}/smoke-singbox-manual.txt"
 grep -F '## Mixed CLI and JSON configuration' "${asset_root}/smoke-singbox-manual.txt"
 test -f "${asset_root}/SINGBOX-MANUAL.md"
@@ -32,6 +35,8 @@ test -f "${asset_root}/SINGBOX-INTEGRATION-FINAL-REPORT.md"
 test -f "${asset_root}/examples/singbox/README.md"
 test -f "${asset_root}/examples/singbox/protocol-templates/README.md"
 test -f "${asset_root}/examples/singbox/protocol-templates/vmess-ws-tls-client.json"
+test -f "${asset_root}/examples/singbox/protocol-templates/gost-json-only-nine-server.json"
+test -f "${asset_root}/examples/singbox/protocol-templates/gost-json-only-nine-client.json"
 python3 -m json.tool "${asset_root}/SINGBOX-PERFORMANCE-BASELINE.json" >/dev/null
 python3 - "${asset_root}/feature-manifest.json" <<'PY'
 import json

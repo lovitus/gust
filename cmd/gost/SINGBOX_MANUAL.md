@@ -52,6 +52,49 @@ Use single quotes around node URIs in POSIX shells so `&`, `?`, brackets and
 JSON are not interpreted by the shell. In PowerShell, single quotes work for
 the same examples.
 
+## Nine-protocol example menu
+
+Every `gust-with-singbox` release archive contains a sanitized, paired
+server/client catalog under `examples/singbox/protocol-templates`. The menu
+below is the authoritative map of the nine reviewed protocol shapes and the
+three supported configuration styles.
+
+| # | Protocol shape | CLI-only form | CLI + native JSON files | Gust JSON-only client |
+|---:|---|---|---|---|
+| 1 | VLESS Reality Vision | `vless+singbox://` | `vless-reality-{server,client}.json` | SOCKS `127.0.0.1:10801` |
+| 2 | Hysteria2 | `hysteria2+singbox://` | `hysteria2-{server,client}.json` | SOCKS `127.0.0.1:10802` |
+| 3 | TUIC | `tuic+singbox://` | `tuic-{server,client}.json` | SOCKS `127.0.0.1:10803` |
+| 4 | ShadowTLS v3 + Shadowsocks 2022 | inline full `singbox://?config={...}` | `shadowtls-{server,client}.json` | SOCKS `127.0.0.1:10804` |
+| 5 | Shadowsocks 2022 | `ss+singbox://` | `shadowsocks-2022-{server,client}.json` | SOCKS `127.0.0.1:10805` |
+| 6 | Trojan TLS | `trojan+singbox://` | `trojan-{server,client}.json` | SOCKS `127.0.0.1:10806` |
+| 7 | VLESS gRPC Reality | `vless+singbox://...?transport.type=grpc` | `vless-grpc-reality-{server,client}.json` | SOCKS `127.0.0.1:10807` |
+| 8 | AnyTLS | `anytls+singbox://` | `anytls-{server,client}.json` | SOCKS `127.0.0.1:10808` |
+| 9 | VMess WebSocket TLS | `vmess+singbox://...?transport.type=ws` | `vmess-ws-tls-{server,client}.json` | SOCKS `127.0.0.1:10809` |
+
+The detailed CLI-only commands and the paired native JSON invocations are in
+`examples/singbox/protocol-templates/README.md`. Eight protocols fit a
+single scalar `-L` or `-F` URI. ShadowTLS deliberately uses an inline or
+file-backed full native config because its ShadowTLS and Shadowsocks objects
+must share one Box and an explicit detour; flattening that graph into one
+ordinary node URI would change its semantics.
+
+The JSON-only suite embeds all nine server and client definitions directly in
+two complete Gust configs. It requires no `-L`, `-F` or secondary config
+file:
+
+```bash
+# Start all nine sanitized native servers.
+gost -C ./examples/singbox/protocol-templates/gost-json-only-nine-server.json
+
+# Start nine local SOCKS clients on 127.0.0.1:10801 through :10809.
+gost -C ./examples/singbox/protocol-templates/gost-json-only-nine-client.json
+```
+
+The documentation domains, UUIDs, passwords, Reality keys, Shadowsocks key and
+certificate paths are placeholders. Replace them as matched server/client
+pairs before startup. The older `gost-json-only-vmess-*.json` pair remains as
+a compact single-protocol example.
+
 ## Architecture and request path
 
 The integration embeds sing-box as a Go library in the Gust process. It does
@@ -381,10 +424,11 @@ gost -L 'http://127.0.0.1:8080' \
   -F 'singbox://?json={"type":"socks","server":"127.0.0.1","server_port":1081,"version":"5"}'
 ```
 
-The repository also ships reviewed templates in `examples/singbox` for
-Shadowsocks UoT/multiplex, Reality client/server, ShadowTLS detour activation,
-remote DNS, TUN and TProxy. Each template is JSON-parsed, privacy-scanned and
-statically validated in CI; replace every `REPLACE_*` value before deployment.
+The repository also ships the nine-protocol menu above and reviewed templates
+in `examples/singbox` for Shadowsocks UoT/multiplex, Reality client/server,
+ShadowTLS detour activation, remote DNS, TUN and TProxy. Each template is
+JSON-parsed, privacy-scanned and statically validated in CI; replace every
+`REPLACE_*` value before deployment.
 
 ## Complete sing-box configuration
 

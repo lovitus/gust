@@ -1,0 +1,302 @@
+{
+  "services": [
+    {
+      "name": "vless-reality-server",
+      "addr": "0.0.0.0:8443",
+      "listener": {
+        "type": "singbox",
+        "metadata": {
+          "protocol": "vless",
+          "options": {
+            "users": [
+              {
+                "uuid": "00000000-0000-4000-8000-000000000001",
+                "flow": "xtls-rprx-vision"
+              }
+            ],
+            "tls": {
+              "enabled": true,
+              "server_name": "server.example.com",
+              "reality": {
+                "enabled": true,
+                "handshake": {
+                  "server": "origin.example.com",
+                  "server_port": 443
+                },
+                "private_key": "REPLACE_WITH_REALITY_PRIVATE_KEY",
+                "short_id": [
+                  "01234567"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "handler": {
+        "type": "auto",
+        "chain": "direct-chain"
+      }
+    },
+    {
+      "name": "hysteria2-server",
+      "addr": "0.0.0.0:8444",
+      "listener": {
+        "type": "singbox",
+        "metadata": {
+          "protocol": "hysteria2",
+          "options": {
+            "users": [
+              {
+                "password": "REPLACE_WITH_HYSTERIA2_PASSWORD"
+              }
+            ],
+            "ignore_client_bandwidth": false,
+            "tls": {
+              "enabled": true,
+              "alpn": [
+                "h3"
+              ],
+              "min_version": "1.3",
+              "certificate_path": "/etc/gust/tls/server.crt",
+              "key_path": "/etc/gust/tls/server.key"
+            }
+          }
+        }
+      },
+      "handler": {
+        "type": "auto",
+        "chain": "direct-chain"
+      }
+    },
+    {
+      "name": "tuic-server",
+      "addr": "0.0.0.0:8445",
+      "listener": {
+        "type": "singbox",
+        "metadata": {
+          "protocol": "tuic",
+          "options": {
+            "users": [
+              {
+                "uuid": "00000000-0000-4000-8000-000000000002",
+                "password": "REPLACE_WITH_TUIC_PASSWORD"
+              }
+            ],
+            "congestion_control": "bbr",
+            "zero_rtt_handshake": false,
+            "tls": {
+              "enabled": true,
+              "alpn": [
+                "h3"
+              ],
+              "certificate_path": "/etc/gust/tls/server.crt",
+              "key_path": "/etc/gust/tls/server.key"
+            }
+          }
+        }
+      },
+      "handler": {
+        "type": "auto",
+        "chain": "direct-chain"
+      }
+    },
+    {
+      "name": "shadowtls-server",
+      "addr": "0.0.0.0:8446",
+      "listener": {
+        "type": "singbox",
+        "metadata": {
+          "config": {
+            "inbounds": [
+              {
+                "type": "shadowtls",
+                "tag": "shadowtls-in",
+                "listen": "0.0.0.0",
+                "listen_port": 8446,
+                "version": 3,
+                "users": [
+                  {
+                    "password": "REPLACE_WITH_SHADOWTLS_PASSWORD"
+                  }
+                ],
+                "handshake": {
+                  "server": "origin.example.com",
+                  "server_port": 443
+                },
+                "strict_mode": true,
+                "detour": "shadowtls-inner"
+              },
+              {
+                "type": "shadowsocks",
+                "tag": "shadowtls-inner",
+                "listen": "127.0.0.1",
+                "listen_port": 18446,
+                "network": "tcp",
+                "method": "2022-blake3-aes-128-gcm",
+                "password": "MDEyMzQ1Njc4OWFiY2RlZg=="
+              }
+            ]
+          },
+          "inbound": "shadowtls-in",
+          "activate_inbounds": [
+            "shadowtls-in",
+            "shadowtls-inner"
+          ]
+        }
+      },
+      "handler": {
+        "type": "auto",
+        "chain": "direct-chain"
+      }
+    },
+    {
+      "name": "shadowsocks-2022-server",
+      "addr": "0.0.0.0:8388",
+      "listener": {
+        "type": "singbox",
+        "metadata": {
+          "protocol": "shadowsocks",
+          "options": {
+            "method": "2022-blake3-aes-128-gcm",
+            "password": "MDEyMzQ1Njc4OWFiY2RlZg=="
+          }
+        }
+      },
+      "handler": {
+        "type": "auto",
+        "chain": "direct-chain"
+      }
+    },
+    {
+      "name": "trojan-server",
+      "addr": "0.0.0.0:8447",
+      "listener": {
+        "type": "singbox",
+        "metadata": {
+          "protocol": "trojan",
+          "options": {
+            "users": [
+              {
+                "password": "REPLACE_WITH_TROJAN_PASSWORD"
+              }
+            ],
+            "tls": {
+              "enabled": true,
+              "certificate_path": "/etc/gust/tls/server.crt",
+              "key_path": "/etc/gust/tls/server.key"
+            }
+          }
+        }
+      },
+      "handler": {
+        "type": "auto",
+        "chain": "direct-chain"
+      }
+    },
+    {
+      "name": "vless-grpc-reality-server",
+      "addr": "0.0.0.0:8448",
+      "listener": {
+        "type": "singbox",
+        "metadata": {
+          "protocol": "vless",
+          "options": {
+            "users": [
+              {
+                "uuid": "00000000-0000-4000-8000-000000000003"
+              }
+            ],
+            "tls": {
+              "enabled": true,
+              "server_name": "server.example.com",
+              "reality": {
+                "enabled": true,
+                "handshake": {
+                  "server": "origin.example.com",
+                  "server_port": 443
+                },
+                "private_key": "REPLACE_WITH_REALITY_PRIVATE_KEY",
+                "short_id": [
+                  "89abcdef"
+                ]
+              }
+            },
+            "transport": {
+              "type": "grpc",
+              "service_name": "example-grpc"
+            }
+          }
+        }
+      },
+      "handler": {
+        "type": "auto",
+        "chain": "direct-chain"
+      }
+    },
+    {
+      "name": "anytls-server",
+      "addr": "0.0.0.0:8449",
+      "listener": {
+        "type": "singbox",
+        "metadata": {
+          "protocol": "anytls",
+          "options": {
+            "users": [
+              {
+                "password": "REPLACE_WITH_ANYTLS_PASSWORD"
+              }
+            ],
+            "tls": {
+              "enabled": true,
+              "certificate_path": "/etc/gust/tls/server.crt",
+              "key_path": "/etc/gust/tls/server.key"
+            }
+          }
+        }
+      },
+      "handler": {
+        "type": "auto",
+        "chain": "direct-chain"
+      }
+    },
+    {
+      "name": "vmess-ws-tls-server",
+      "addr": "0.0.0.0:8450",
+      "listener": {
+        "type": "singbox",
+        "metadata": {
+          "protocol": "vmess",
+          "options": {
+            "users": [
+              {
+                "uuid": "00000000-0000-4000-8000-000000000004",
+                "alterId": 0
+              }
+            ],
+            "tls": {
+              "enabled": true,
+              "certificate_path": "/etc/gust/tls/server.crt",
+              "key_path": "/etc/gust/tls/server.key"
+            },
+            "transport": {
+              "type": "ws",
+              "path": "/vmess-example",
+              "max_early_data": 2560,
+              "early_data_header_name": "Sec-WebSocket-Protocol"
+            }
+          }
+        }
+      },
+      "handler": {
+        "type": "auto",
+        "chain": "direct-chain"
+      }
+    }
+  ],
+  "chains": [
+    {
+      "name": "direct-chain",
+      "hops": []
+    }
+  ]
+}

@@ -1,0 +1,450 @@
+{
+  "services": [
+    {
+      "name": "vless-reality-local-socks",
+      "addr": "127.0.0.1:10801",
+      "listener": {
+        "type": "tcp"
+      },
+      "handler": {
+        "type": "socks5",
+        "chain": "vless-reality-chain"
+      }
+    },
+    {
+      "name": "hysteria2-local-socks",
+      "addr": "127.0.0.1:10802",
+      "listener": {
+        "type": "tcp"
+      },
+      "handler": {
+        "type": "socks5",
+        "chain": "hysteria2-chain"
+      }
+    },
+    {
+      "name": "tuic-local-socks",
+      "addr": "127.0.0.1:10803",
+      "listener": {
+        "type": "tcp"
+      },
+      "handler": {
+        "type": "socks5",
+        "chain": "tuic-chain"
+      }
+    },
+    {
+      "name": "shadowtls-local-socks",
+      "addr": "127.0.0.1:10804",
+      "listener": {
+        "type": "tcp"
+      },
+      "handler": {
+        "type": "socks5",
+        "chain": "shadowtls-chain"
+      }
+    },
+    {
+      "name": "shadowsocks-2022-local-socks",
+      "addr": "127.0.0.1:10805",
+      "listener": {
+        "type": "tcp"
+      },
+      "handler": {
+        "type": "socks5",
+        "chain": "shadowsocks-2022-chain"
+      }
+    },
+    {
+      "name": "trojan-local-socks",
+      "addr": "127.0.0.1:10806",
+      "listener": {
+        "type": "tcp"
+      },
+      "handler": {
+        "type": "socks5",
+        "chain": "trojan-chain"
+      }
+    },
+    {
+      "name": "vless-grpc-reality-local-socks",
+      "addr": "127.0.0.1:10807",
+      "listener": {
+        "type": "tcp"
+      },
+      "handler": {
+        "type": "socks5",
+        "chain": "vless-grpc-reality-chain"
+      }
+    },
+    {
+      "name": "anytls-local-socks",
+      "addr": "127.0.0.1:10808",
+      "listener": {
+        "type": "tcp"
+      },
+      "handler": {
+        "type": "socks5",
+        "chain": "anytls-chain"
+      }
+    },
+    {
+      "name": "vmess-ws-tls-local-socks",
+      "addr": "127.0.0.1:10809",
+      "listener": {
+        "type": "tcp"
+      },
+      "handler": {
+        "type": "socks5",
+        "chain": "vmess-ws-tls-chain"
+      }
+    }
+  ],
+  "chains": [
+    {
+      "name": "vless-reality-chain",
+      "hops": [
+        {
+          "name": "vless-reality-hop",
+          "nodes": [
+            {
+              "name": "vless-reality",
+              "addr": "server.example.com:8443",
+              "connector": {
+                "type": "singbox",
+                "metadata": {
+                  "protocol": "vless",
+                  "options": {
+                    "uuid": "00000000-0000-4000-8000-000000000001",
+                    "flow": "xtls-rprx-vision",
+                    "tls": {
+                      "enabled": true,
+                      "server_name": "server.example.com",
+                      "utls": {
+                        "enabled": true,
+                        "fingerprint": "chrome"
+                      },
+                      "reality": {
+                        "enabled": true,
+                        "public_key": "REPLACE_WITH_REALITY_PUBLIC_KEY",
+                        "short_id": "01234567"
+                      }
+                    }
+                  }
+                }
+              },
+              "dialer": {
+                "type": "direct"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "hysteria2-chain",
+      "hops": [
+        {
+          "name": "hysteria2-hop",
+          "nodes": [
+            {
+              "name": "hysteria2",
+              "addr": "server.example.com:8444",
+              "connector": {
+                "type": "singbox",
+                "metadata": {
+                  "protocol": "hysteria2",
+                  "options": {
+                    "up_mbps": 100,
+                    "down_mbps": 300,
+                    "password": "REPLACE_WITH_HYSTERIA2_PASSWORD",
+                    "tls": {
+                      "enabled": true,
+                      "server_name": "server.example.com",
+                      "alpn": [
+                        "h3"
+                      ]
+                    }
+                  }
+                }
+              },
+              "dialer": {
+                "type": "direct"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "tuic-chain",
+      "hops": [
+        {
+          "name": "tuic-hop",
+          "nodes": [
+            {
+              "name": "tuic",
+              "addr": "server.example.com:8445",
+              "connector": {
+                "type": "singbox",
+                "metadata": {
+                  "protocol": "tuic",
+                  "options": {
+                    "uuid": "00000000-0000-4000-8000-000000000002",
+                    "password": "REPLACE_WITH_TUIC_PASSWORD",
+                    "congestion_control": "bbr",
+                    "udp_relay_mode": "native",
+                    "zero_rtt_handshake": false,
+                    "tls": {
+                      "enabled": true,
+                      "server_name": "server.example.com",
+                      "alpn": [
+                        "h3"
+                      ]
+                    }
+                  }
+                }
+              },
+              "dialer": {
+                "type": "direct"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "shadowtls-chain",
+      "hops": [
+        {
+          "name": "shadowtls-hop",
+          "nodes": [
+            {
+              "name": "shadowtls",
+              "addr": "server.example.com:8446",
+              "connector": {
+                "type": "singbox",
+                "metadata": {
+                  "config": {
+                    "outbounds": [
+                      {
+                        "type": "shadowsocks",
+                        "tag": "proxy",
+                        "server": "server.example.com",
+                        "server_port": 8446,
+                        "method": "2022-blake3-aes-128-gcm",
+                        "password": "MDEyMzQ1Njc4OWFiY2RlZg==",
+                        "detour": "shadowtls"
+                      },
+                      {
+                        "type": "shadowtls",
+                        "tag": "shadowtls",
+                        "server": "server.example.com",
+                        "server_port": 8446,
+                        "version": 3,
+                        "password": "REPLACE_WITH_SHADOWTLS_PASSWORD",
+                        "tls": {
+                          "enabled": true,
+                          "server_name": "origin.example.com",
+                          "utls": {
+                            "enabled": true,
+                            "fingerprint": "chrome"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "outbound": "proxy"
+                }
+              },
+              "dialer": {
+                "type": "direct"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "shadowsocks-2022-chain",
+      "hops": [
+        {
+          "name": "shadowsocks-2022-hop",
+          "nodes": [
+            {
+              "name": "shadowsocks-2022",
+              "addr": "server.example.com:8388",
+              "connector": {
+                "type": "singbox",
+                "metadata": {
+                  "protocol": "shadowsocks",
+                  "options": {
+                    "method": "2022-blake3-aes-128-gcm",
+                    "password": "MDEyMzQ1Njc4OWFiY2RlZg=="
+                  }
+                }
+              },
+              "dialer": {
+                "type": "direct"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "trojan-chain",
+      "hops": [
+        {
+          "name": "trojan-hop",
+          "nodes": [
+            {
+              "name": "trojan",
+              "addr": "server.example.com:8447",
+              "connector": {
+                "type": "singbox",
+                "metadata": {
+                  "protocol": "trojan",
+                  "options": {
+                    "password": "REPLACE_WITH_TROJAN_PASSWORD",
+                    "tls": {
+                      "enabled": true,
+                      "server_name": "server.example.com",
+                      "utls": {
+                        "enabled": true,
+                        "fingerprint": "chrome"
+                      }
+                    }
+                  }
+                }
+              },
+              "dialer": {
+                "type": "direct"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "vless-grpc-reality-chain",
+      "hops": [
+        {
+          "name": "vless-grpc-reality-hop",
+          "nodes": [
+            {
+              "name": "vless-grpc-reality",
+              "addr": "server.example.com:8448",
+              "connector": {
+                "type": "singbox",
+                "metadata": {
+                  "protocol": "vless",
+                  "options": {
+                    "uuid": "00000000-0000-4000-8000-000000000003",
+                    "tls": {
+                      "enabled": true,
+                      "server_name": "server.example.com",
+                      "utls": {
+                        "enabled": true,
+                        "fingerprint": "chrome"
+                      },
+                      "reality": {
+                        "enabled": true,
+                        "public_key": "REPLACE_WITH_REALITY_PUBLIC_KEY",
+                        "short_id": "89abcdef"
+                      }
+                    },
+                    "transport": {
+                      "type": "grpc",
+                      "service_name": "example-grpc"
+                    }
+                  }
+                }
+              },
+              "dialer": {
+                "type": "direct"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "anytls-chain",
+      "hops": [
+        {
+          "name": "anytls-hop",
+          "nodes": [
+            {
+              "name": "anytls",
+              "addr": "server.example.com:8449",
+              "connector": {
+                "type": "singbox",
+                "metadata": {
+                  "protocol": "anytls",
+                  "options": {
+                    "password": "REPLACE_WITH_ANYTLS_PASSWORD",
+                    "idle_session_check_interval": "30s",
+                    "idle_session_timeout": "30s",
+                    "tls": {
+                      "enabled": true,
+                      "server_name": "server.example.com",
+                      "utls": {
+                        "enabled": true,
+                        "fingerprint": "chrome"
+                      }
+                    }
+                  }
+                }
+              },
+              "dialer": {
+                "type": "direct"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "vmess-ws-tls-chain",
+      "hops": [
+        {
+          "name": "vmess-ws-tls-hop",
+          "nodes": [
+            {
+              "name": "vmess-ws-tls",
+              "addr": "server.example.com:8450",
+              "connector": {
+                "type": "singbox",
+                "metadata": {
+                  "protocol": "vmess",
+                  "options": {
+                    "uuid": "00000000-0000-4000-8000-000000000004",
+                    "security": "auto",
+                    "alter_id": 0,
+                    "tls": {
+                      "enabled": true,
+                      "server_name": "server.example.com"
+                    },
+                    "transport": {
+                      "type": "ws",
+                      "path": "/vmess-example",
+                      "max_early_data": 2560,
+                      "early_data_header_name": "Sec-WebSocket-Protocol",
+                      "headers": {
+                        "Host": "server.example.com"
+                      }
+                    }
+                  }
+                }
+              },
+              "dialer": {
+                "type": "direct"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

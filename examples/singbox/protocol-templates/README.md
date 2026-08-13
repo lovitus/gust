@@ -142,8 +142,32 @@ gust-with-singbox -L 'socks5://127.0.0.1:1080?udp=true' \
 
 ## 3. Gust JSON only
 
-The two `gost-json-only-vmess-*.json` files contain the complete Gust service,
-chain and embedded native options. They require no `-L` or `-F` flags:
+The `gost-json-only-nine-*.json` files contain all nine complete Gust
+server/client pairs, including ShadowTLS's two-object native graph. They embed
+the native options directly and require no `-L`, `-F` or secondary JSON
+file:
+
+```bash
+gust-with-singbox -C ./examples/singbox/protocol-templates/gost-json-only-nine-server.json
+gust-with-singbox -C ./examples/singbox/protocol-templates/gost-json-only-nine-client.json
+```
+
+The client exposes one local SOCKS service per protocol:
+
+| Local SOCKS | Native pair |
+|---|---|
+| `127.0.0.1:10801` | VLESS Reality Vision |
+| `127.0.0.1:10802` | Hysteria2 |
+| `127.0.0.1:10803` | TUIC |
+| `127.0.0.1:10804` | ShadowTLS v3 over Shadowsocks 2022 |
+| `127.0.0.1:10805` | Shadowsocks 2022 |
+| `127.0.0.1:10806` | Trojan TLS |
+| `127.0.0.1:10807` | VLESS gRPC Reality |
+| `127.0.0.1:10808` | AnyTLS |
+| `127.0.0.1:10809` | VMess WebSocket TLS |
+
+The two `gost-json-only-vmess-*.json` files remain as a compact,
+single-protocol version:
 
 ```bash
 gust-with-singbox -C ./examples/singbox/protocol-templates/gost-json-only-vmess-server.json
@@ -151,10 +175,8 @@ gust-with-singbox -C ./examples/singbox/protocol-templates/gost-json-only-vmess-
 ```
 
 The server and client JSON intentionally repeat the native options. This makes
-the deployment self-contained and avoids a hidden dependency on a second JSON
-file. Use the same `listener.metadata.protocol/options` and
-`connector.metadata.protocol/options` shape to move any other pair into a
-JSON-only Gust deployment.
+each deployment self-contained and avoids a hidden dependency on a second JSON
+file.
 
 ## Validation and security notes
 

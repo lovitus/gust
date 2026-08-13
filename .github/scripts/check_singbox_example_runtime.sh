@@ -55,6 +55,13 @@ check -L 'socks5://127.0.0.1:1080?udp=true' \
   -F "singbox://?config=${templates}/shadowtls-client.json&outbound=proxy"
 check -C "${templates}/gost-json-only-vmess-server.json"
 check -C "${templates}/gost-json-only-vmess-client.json"
+check -C "${templates}/gost-json-only-nine-server.json"
+check -C "${templates}/gost-json-only-nine-client.json"
+jq -e '.services | length == 9' "${templates}/gost-json-only-nine-server.json" >/dev/null
+jq -e '
+  (.services | length == 9)
+  and (.chains | length == 9)
+' "${templates}/gost-json-only-nine-client.json" >/dev/null
 
 # Keep representative CLI-only forms executable. In particular, Vision flow
 # belongs to a VLESS inbound user, not the top-level inbound options.
