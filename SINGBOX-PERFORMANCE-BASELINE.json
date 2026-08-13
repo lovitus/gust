@@ -4,58 +4,58 @@
   "date": "2026-08-13",
   "scope": "embedded sing-box native inbound direct-path baseline",
   "source": {
-    "gust_x_revision": "ec4d820b0d20680fc05abe4a6545f29bfa4649d1",
+    "gust_x_revision": "318b6c61cb2f85c8c84e439371ead4b063ae75db",
     "sing_box_version": "v1.13.17-0.20260811025254-2926c94dd073",
-    "test_binary_sha256": "78e856b9728127efb79abd3f8471c3f8cdee5bb61d27346034ca1f2ab80e53e5",
+    "test_binary_sha256": "d6cf997f5ef2f8c5856ed853c46fb034705fcb9abecc6ec921836960a3922b2e",
     "go_version": "go1.26.5",
     "build_tags": "with_singbox,with_singbox_full,with_gvisor,with_quic,with_dhcp,with_wireguard,with_utls,with_naive_outbound,with_purego,with_acme,with_clash_api,with_tailscale,with_ccm,with_ocm",
     "cgo_enabled": false
   },
   "previous_accepted": {
-    "source_revision": "b8c281cb5f5777d84acc8a532885a0c1ed9a1314",
-    "baseline_sha256": "da7d4ca919d7d69e6a5367f9dbb1fffcc3db739e789678d9ce603d796fb66c2e",
+    "source_revision": "ec4d820b0d20680fc05abe4a6545f29bfa4649d1",
+    "baseline_sha256": "0fe041f40ddb90b73e8efd000f1a2f3a50d99627b27a6af64d74823bef8e72b6",
     "benchmarks": {
-      "tcp_gust_median_mb_per_second": 678.69,
-      "udp_gust_median_ns_per_op": 91986
+      "tcp_gust_median_mb_per_second": 674.31,
+      "udp_gust_median_ns_per_op": 90043
     },
     "latency": {
       "tcp": {
-        "p95_ns": 107459,
-        "p99_ns": 116604
+        "p95_ns": 106905,
+        "p99_ns": 114333
       },
       "udp": {
-        "p95_ns": 105491,
-        "p99_ns": 116144
+        "p95_ns": 105283,
+        "p99_ns": 116773
       }
     },
     "resources": {
       "1": {
-        "startup_ns": 5371146,
-        "heap_live_delta_bytes": 312176,
+        "startup_ns": 5174034,
+        "heap_live_delta_bytes": 312704,
         "goroutine_live_delta": 8,
         "fd_live_delta": 4,
-        "max_rss_bytes": 19836928
+        "max_rss_bytes": 20004864
       },
       "2": {
-        "startup_ns": 8390699,
-        "heap_live_delta_bytes": 612168,
+        "startup_ns": 8177038,
+        "heap_live_delta_bytes": 612232,
         "goroutine_live_delta": 16,
         "fd_live_delta": 8,
-        "max_rss_bytes": 20439040
+        "max_rss_bytes": 20566016
       },
       "10": {
-        "startup_ns": 32895133,
-        "heap_live_delta_bytes": 3007672,
+        "startup_ns": 32895851,
+        "heap_live_delta_bytes": 3008056,
         "goroutine_live_delta": 80,
         "fd_live_delta": 40,
-        "max_rss_bytes": 24272896
+        "max_rss_bytes": 23990272
       },
       "50": {
-        "startup_ns": 207957708,
-        "heap_live_delta_bytes": 14982824,
+        "startup_ns": 207216869,
+        "heap_live_delta_bytes": 14983336,
         "goroutine_live_delta": 400,
         "fd_live_delta": 200,
-        "max_rss_bytes": 41979904
+        "max_rss_bytes": 41844736
       }
     }
   },
@@ -77,69 +77,70 @@
     "udp_payload_bytes": 1200,
     "latency_samples_per_trial": 5000,
     "target": "controlled loopback echo",
-    "comparison": "same process, same target, pinned official sing-box direct inbound versus Gust __gust_egress to a direct GOST Router"
+    "comparison": "same process, same target, pinned official sing-box direct inbound versus Gust __gust_egress to a direct GOST Router",
+    "resource_samples_per_count": 10
   },
   "benchmarks": {
     "tcp": {
       "official": {
-        "ns_per_op": [97680, 98003, 97260, 96560, 97208],
-        "mb_per_second": [670.93, 668.71, 673.82, 678.7, 674.18],
+        "ns_per_op": [96692, 96925, 96607, 96748, 96980],
+        "mb_per_second": [677.78, 676.15, 678.38, 677.39, 675.76],
         "bytes_per_op": [0, 0, 0, 0, 0],
         "allocs_per_op": [0, 0, 0, 0, 0]
       },
       "gust": {
-        "ns_per_op": [96994, 98820, 97407, 97190, 96528],
-        "mb_per_second": [675.67, 663.18, 672.8, 674.31, 678.93],
+        "ns_per_op": [96930, 96954, 97384, 97514, 97100],
+        "mb_per_second": [676.12, 675.95, 672.97, 672.07, 674.93],
         "bytes_per_op": [0, 0, 0, 0, 0],
         "allocs_per_op": [0, 0, 0, 0, 0]
       },
-      "median_throughput_ratio": 1.0007,
-      "p95_latency_ratio": 1.0083,
+      "median_throughput_ratio": 0.9964,
+      "p95_latency_ratio": 1.0055,
       "result": "pass"
     },
     "udp": {
       "official": {
-        "ns_per_op": [91091, 91499, 91209, 88724, 93735],
-        "bytes_per_op": [532, 531, 531, 531, 532],
+        "ns_per_op": [91680, 91702, 92657, 92156, 90726],
+        "bytes_per_op": [532, 531, 532, 531, 531],
         "allocs_per_op": [12, 12, 12, 12, 12]
       },
       "gust": {
-        "ns_per_op": [88830, 90940, 89552, 90864, 90043],
+        "ns_per_op": [92906, 92530, 93157, 92377, 92005],
         "bytes_per_op": [491, 491, 491, 491, 491],
         "allocs_per_op": [10, 10, 10, 10, 10]
       },
-      "median_pps_ratio": 1.0129,
-      "p95_latency_ratio": 0.9702,
+      "median_pps_ratio": 0.9911,
+      "p95_latency_ratio": 1.0054,
       "result": "pass"
     },
     "egress_udp_write": {
-      "ns_per_op": [150.6, 150.3, 153.6, 150.5, 149.9],
+      "ns_per_op": [151.8, 150.3, 150.6, 149.8, 150.3],
       "bytes_per_op": [96, 96, 96, 96, 96],
       "allocs_per_op": [2, 2, 2, 2, 2],
       "payload_scaled_allocation": false,
       "result": "pass"
     },
     "fixed_port_reload": {
-      "ns_per_op": [3591692, 3572152, 3570322, 3574941, 3574551],
-      "bytes_per_op": [683894, 683812, 684069, 683773, 683882],
-      "allocs_per_op": [2204, 2204, 2205, 2203, 2204],
-      "median_pause_ns": 3574551,
-      "p95_pause_ns": 3591692,
+      "ns_per_op": [3588515, 3589644, 3590292, 3573443, 3577558],
+      "bytes_per_op": [683888, 683885, 683922, 683928, 683853],
+      "allocs_per_op": [2203, 2203, 2204, 2204, 2204],
+      "median_pause_ns": 3588515,
+      "p95_pause_ns": 3590292,
       "result": "pass"
     },
     "runtime_handle": {
       "decode_and_construct": {
-        "ns_per_op": [193158, 190647, 190738, 190891, 191160],
-        "bytes_per_op": [41723, 41722, 41722, 41722, 41722],
+        "ns_per_op": [192348, 191821, 191496, 189572, 189988],
+        "bytes_per_op": [41722, 41722, 41722, 41722, 41722],
         "allocs_per_op": [648, 648, 648, 648, 648]
       },
       "retained": {
-        "ns_per_op": [221.7, 221.2, 221, 221.5, 230.1],
+        "ns_per_op": [221, 220.1, 219.7, 219.1, 220.7],
         "bytes_per_op": [80, 80, 80, 80, 80],
         "allocs_per_op": [1, 1, 1, 1, 1]
       },
       "scoped_cache_hit": {
-        "ns_per_op": [262.4, 262.1, 261.7, 262.5, 261],
+        "ns_per_op": [260.7, 261.3, 261.4, 262.6, 259.8],
         "bytes_per_op": [80, 80, 80, 80, 80],
         "allocs_per_op": [1, 1, 1, 1, 1]
       },
@@ -147,12 +148,12 @@
     },
     "packet_read": {
       "direct": {
-        "ns_per_op": [30.93, 30.96, 30.98, 31.01, 30.99],
+        "ns_per_op": [31.2, 31.02, 30.97, 30.92, 30.96],
         "bytes_per_op": [0, 0, 0, 0, 0],
         "allocs_per_op": [0, 0, 0, 0, 0]
       },
       "proxy_headroom": {
-        "ns_per_op": [134.3, 135.6, 134.4, 134.3, 134.4],
+        "ns_per_op": [136.3, 136, 136, 136.3, 136.3],
         "bytes_per_op": [24, 24, 24, 24, 24],
         "allocs_per_op": [1, 1, 1, 1, 1]
       },
@@ -166,75 +167,75 @@
     "method": "official and Gust operations interleaved against the same controlled loopback echo target",
     "tcp": {
       "official": {
-        "p50_ns": [98349, 98256, 96444, 98231, 99298],
-        "p95_ns": [106947, 106976, 105820, 106798, 107973],
-        "p99_ns": [112046, 112768, 121602, 110042, 114793]
+        "p50_ns": [97185, 98041, 97497, 97686, 97580],
+        "p95_ns": [107080, 106972, 106202, 106871, 106471],
+        "p99_ns": [118540, 115781, 108899, 117811, 113519]
       },
       "gust": {
-        "p50_ns": [98293, 98707, 96438, 98131, 98963],
-        "p95_ns": [106905, 107487, 105853, 106753, 107753],
-        "p99_ns": [110071, 119059, 118883, 109063, 114333]
+        "p50_ns": [96845, 98124, 97429, 97504, 97540],
+        "p95_ns": [106579, 107209, 106046, 106679, 106550],
+        "p99_ns": [120801, 115530, 110433, 118126, 112115]
       },
-      "median_p95_ratio": 0.9996,
-      "median_p99_ratio": 1.0139,
+      "median_p95_ratio": 0.9973,
+      "median_p99_ratio": 0.9978,
       "result": "pass"
     },
     "udp": {
       "official": {
-        "p50_ns": [93062, 93883, 93569, 93668, 94216],
-        "p95_ns": [103892, 121682, 104588, 104483, 106620],
-        "p99_ns": [115931, 134850, 114677, 114014, 119492]
+        "p50_ns": [95083, 94216, 94186, 95169, 94266],
+        "p95_ns": [106972, 105921, 106515, 128505, 105220],
+        "p99_ns": [122037, 116533, 121742, 136588, 116304]
       },
       "gust": {
-        "p50_ns": [93262, 94014, 94175, 94073, 95042],
-        "p95_ns": [103828, 121197, 105053, 105283, 107764],
-        "p99_ns": [112168, 140652, 115975, 116773, 118991]
+        "p50_ns": [95354, 94452, 94479, 95798, 94391],
+        "p95_ns": [108024, 106120, 106972, 128679, 105960],
+        "p99_ns": [123102, 120461, 123928, 136963, 117322]
       },
-      "median_p95_ratio": 1.0066,
-      "median_p99_ratio": 1.0073,
+      "median_p95_ratio": 1.0043,
+      "median_p99_ratio": 1.0112,
       "result": "pass"
     }
   },
   "resources": {
     "1": {
-      "startup_ns": [5534162, 5385542, 5174034, 5003366, 5105776],
-      "heap_live_delta_bytes": [349280, 311968, 312160, 350448, 312704],
-      "goroutine_live_delta": [8, 8, 8, 8, 8],
-      "fd_live_delta": [4, 4, 4, 4, 4],
-      "max_rss_bytes": [19800064, 20037632, 20033536, 19607552, 20004864],
-      "heap_after_close_delta_bytes": [63368, 25880, 26200, 64536, 26568],
-      "goroutine_after_close_delta": [0, 0, 0, 0, 0],
-      "fd_after_close_delta": [0, 0, 0, 0, 0]
+      "startup_ns": [5516296, 5218072, 5270592, 6026377, 5337924, 5488758, 5177020, 5149921, 5192912, 5431649],
+      "heap_live_delta_bytes": [312304, 312176, 311664, 311872, 349696, 348864, 349232, 312688, 312096, 349056],
+      "goroutine_live_delta": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+      "fd_live_delta": [4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+      "max_rss_bytes": [20017152, 19943424, 19959808, 19972096, 19648512, 19959808, 19705856, 19951616, 19959808, 19800064],
+      "heap_after_close_delta_bytes": [26344, 26088, 25752, 25912, 63784, 62792, 63144, 26520, 26184, 63112],
+      "goroutine_after_close_delta": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "fd_after_close_delta": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     },
     "2": {
-      "startup_ns": [8236164, 8050721, 8023149, 8177038, 8308253],
-      "heap_live_delta_bytes": [613032, 612392, 612024, 612232, 611688],
-      "goroutine_live_delta": [16, 16, 16, 16, 16],
-      "fd_live_delta": [8, 8, 8, 8, 8],
-      "max_rss_bytes": [20566016, 20606976, 20492288, 20844544, 20557824],
-      "heap_after_close_delta_bytes": [32408, 31816, 31448, 31448, 31128],
-      "goroutine_after_close_delta": [0, 0, 0, 0, 0],
-      "fd_after_close_delta": [0, 0, 0, 0, 0]
+      "startup_ns": [8357114, 8094917, 8128613, 8795308, 8239655, 8311563, 8368056, 8145988, 8182208, 8023075],
+      "heap_live_delta_bytes": [648936, 612216, 648136, 611048, 647768, 611592, 612856, 611848, 612136, 610472],
+      "goroutine_live_delta": [16, 16, 16, 16, 16, 16, 16, 16, 16, 16],
+      "fd_live_delta": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+      "max_rss_bytes": [20389888, 20578304, 20348928, 20459520, 20582400, 20254720, 20516864, 20422656, 20623360, 20664320],
+      "heap_after_close_delta_bytes": [68376, 31592, 67512, 30424, 67144, 30856, 32296, 31224, 31512, 29896],
+      "goroutine_after_close_delta": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "fd_after_close_delta": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     },
     "10": {
-      "startup_ns": [32613117, 33548737, 33099041, 32691715, 32895851],
-      "heap_live_delta_bytes": [3006360, 3044296, 3008056, 3007784, 3043768],
-      "goroutine_live_delta": [80, 80, 80, 80, 80],
-      "fd_live_delta": [40, 40, 40, 40, 40],
-      "max_rss_bytes": [23748608, 24723456, 24412160, 23908352, 23990272],
-      "heap_after_close_delta_bytes": [68392, 106328, 69896, 69672, 105800],
-      "goroutine_after_close_delta": [0, 0, 0, 0, 0],
-      "fd_after_close_delta": [0, 0, 0, 0, 0]
+      "startup_ns": [33009392, 32537598, 32834833, 32797103, 32865332, 33308407, 32773128, 39249996, 32591124, 35293170],
+      "heap_live_delta_bytes": [3007048, 3006248, 3007032, 3044680, 3044968, 3006120, 3006184, 3044888, 3045272, 3043816],
+      "goroutine_live_delta": [80, 80, 80, 80, 80, 80, 80, 80, 80, 80],
+      "fd_live_delta": [40, 40, 40, 40, 40, 40, 40, 40, 40, 40],
+      "max_rss_bytes": [24150016, 23908352, 24371200, 24559616, 24547328, 23773184, 24514560, 23961600, 24264704, 24002560],
+      "heap_after_close_delta_bytes": [68888, 68280, 69064, 106760, 106808, 68152, 68216, 106920, 107304, 105848],
+      "goroutine_after_close_delta": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "fd_after_close_delta": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     },
     "50": {
-      "startup_ns": [209544598, 207279514, 205404724, 207216869, 205322794],
-      "heap_live_delta_bytes": [15020088, 14982952, 14982664, 14983336, 15019864],
-      "goroutine_live_delta": [400, 400, 400, 400, 400],
-      "fd_live_delta": [200, 200, 200, 200, 200],
-      "max_rss_bytes": [41979904, 41795584, 41140224, 42008576, 41844736],
-      "heap_after_close_delta_bytes": [274024, 229656, 229176, 230008, 273544],
-      "goroutine_after_close_delta": [0, 0, 0, 0, 0],
-      "fd_after_close_delta": [0, 0, 0, 0, 0]
+      "startup_ns": [205158079, 205660506, 208346560, 207390467, 202881687, 210471781, 209919655, 207594980, 205675898, 208187568],
+      "heap_live_delta_bytes": [14982328, 15020872, 14983112, 14982872, 14982984, 14982376, 14982648, 14983000, 14982504, 14982936],
+      "goroutine_live_delta": [400, 400, 400, 400, 400, 400, 400, 400, 400, 400],
+      "fd_live_delta": [200, 200, 200, 200, 200, 200, 200, 200, 200, 200],
+      "max_rss_bytes": [41791488, 41795584, 41279488, 41889792, 40951808, 41693184, 42139648, 41164800, 41414656, 41291776],
+      "heap_after_close_delta_bytes": [236248, 274552, 236904, 229432, 229496, 229224, 236376, 236872, 236232, 236856],
+      "goroutine_after_close_delta": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "fd_after_close_delta": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     }
   },
   "release_gates": {
@@ -258,7 +259,7 @@
   "notes": [
     "This baseline measures integration overhead, not WAN or encrypted-protocol throughput.",
     "The previous accepted medians and source baseline SHA-256 make the checked-in cross-release regression gates executable rather than documentary.",
-    "Each resource count ran in a fresh process; all five samples returned goroutine and file-descriptor counts to baseline after Close.",
+    "Each resource count ran in a fresh process; all 10 samples returned goroutine and file-descriptor counts to baseline after Close.",
     "Addresses and hostnames of private validation infrastructure are intentionally not recorded."
   ]
 }

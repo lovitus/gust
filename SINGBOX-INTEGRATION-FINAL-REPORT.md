@@ -313,23 +313,23 @@ ShadowTLS、WireGuard endpoint、Direct，以及 Linux TUN、REDIRECT、TProxy�
 私有 runner 只在公开材料中称 A/B/C；高性能 runner C 优先承担 Linux/Docker/netns
 和 dependency remote equivalence 等严格机器门禁，性能则记录为 generic fixed Linux
 runner。原始地址和日志不进入 Git 仓库。最终证据不是把一次旧 runner 日志冒充后续
-提交的全量重跑，而是：机器专属 gate、绑定 `ec4d820` 功能树的性能基线，以及绑定
+提交的全量重跑，而是：机器专属 gate、绑定 `318b6c6` 功能树的性能基线，以及绑定
 报告/策略基线的 GitHub 19/19 组合。后续若 runtime、依赖或性能相关配置发生变化，
 必须重建对应证据，不能沿用本表。
 
 ### 固定 runner 性能
 
-固定性能基线绑定 gust-x 功能树 `ec4d820`、Go 1.26.5、完整 tags、CGO disabled：
+固定性能基线绑定 gust-x 功能树 `318b6c6`、Go 1.26.5、完整 tags、CGO disabled：
 
-- TCP：同一 pinned sing-box 实现的 native direct baseline 673.82 MB/s，Gust
-  674.31 MB/s，100.07%；
-- UDP PPS：Gust / 同一 pinned native direct baseline = 101.29%；
-- TCP p95/p99：99.96% / 101.39%；UDP p95/p99：100.66% / 100.73%；
-- retained handle：221.5 ns/op、80 B、1 allocation；
-- scoped cache hit：262.1 ns/op、80 B、1 allocation；
+- TCP：同一 pinned sing-box 实现的 native direct baseline 677.39 MB/s，Gust
+  674.93 MB/s，99.64%；
+- UDP PPS：Gust / 同一 pinned native direct baseline = 99.11%；
+- TCP p95/p99：99.73% / 99.78%；UDP p95/p99：100.43% / 101.12%；
+- retained handle：220.1 ns/op、80 B、1 allocation；
+- scoped cache hit：261.3 ns/op、80 B、1 allocation；
 - direct/proxy packet read：0 B/0 allocs 与 24 B/1 alloc；
-- fixed-port reload：3.57 ms median、3.59 ms p95；
-- 1/2/10/50 Boxes 的 20 个 fresh-process samples，Close 后 goroutine 和 FD 全部精确
+- fixed-port reload：3.59 ms median、3.59 ms p95；
+- 1/2/10/50 Boxes 的 40 个 fresh-process samples，Close 后 goroutine 和 FD 全部精确
   回到启动前；heap 不宣称精确归零。
 
 ## 9. 用户可见变化
