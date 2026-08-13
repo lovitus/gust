@@ -440,3 +440,33 @@ The acceptance matrix is PASS. Publishing still requires a clean pushed source
 branch and an `singbox-v*` tag contained in `origin/singbox-backend`; the tag
 workflow independently repeats all six package builds before creating the
 GitHub Release.
+
+## Classic VMess UDP association regression (2026-08-13)
+
+A maintainer-provided VMess WebSocket/TLS service was checked from two overseas
+Linux VPS hosts against one pure-IPv4 TCP/UDP echo target. The service address,
+credentials and raw host logs remain in the private validation archive.
+
+The control matrix isolated the adapter boundary:
+
+| Client path | TCP | Default VMess UDP |
+|---|---:|---:|
+| official sing-box 1.13.18 | 10/10 per VPS | 10/10 per VPS |
+| Mihomo 1.19.29 | 10/10 per VPS | 10/10 per VPS |
+| Gust before the fix | 10/10 per VPS | 0/10 per VPS |
+
+GOST opens SOCKS UDP as an unconnected association and supplies the target on
+each `WriteTo`; classic VMess instead fixes one destination in its session
+handshake. The old adapter opened the native packet connection with an empty
+destination, logged `:0`, and timed out. XUDP happened to carry each packet's
+address and therefore masked the adapter error; it is not required for normal
+VMess UDP and is not enabled implicitly by the fix.
+
+The final gust-x subject is
+`318b6c61cb2f85c8c84e439371ead4b063ae75db`. It lazily creates and reuses one
+bounded classic VMess packet session per actual association target. On both VPS
+hosts the exact final binary passed TCP 10/10, 100 newly-created default UDP
+associations out of 100, and 100 packets alternating between two targets in one
+association. Each log contained 102 real target entries and zero `:0` entries.
+The tested binary SHA-256 was
+`646f761466da4c426951ccce318516b6f5d76fb33ec987cfcafa361441196914`.

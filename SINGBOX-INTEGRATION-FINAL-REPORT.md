@@ -207,6 +207,9 @@ route 所有权，因此当前适配器明确拒绝：
 - native direct UDP 在确实需要 `net.UDPAddr` 时才本机解析；
 - connected prefix association 必须有固定目标，后续 `WriteTo` 不能偷换 destination；
 - 支持 connected 与 unconnected packet 模式和一个 association 的多目标语义；
+- GOST SOCKS 的无固定目标 UDP association 遇到经典 VMess 时，按实际 `WriteTo`
+  目标惰性创建并复用有界的固定目标 packet session；默认 VMess UDP 不需要 XUDP，
+  也不会被适配器静默改写 `packet_encoding`；
 - proxy read 预留 512-byte address header headroom，使用有界 buffer pool；最终还有一次
   payload copy，但不再每包按 payload 大小 heap allocate；
 - internal egress 只有在底层是真实 UDP socket 时才把域名解析成 `UDPAddr`；代理型
