@@ -421,14 +421,20 @@ python3 .github/scripts/check_doc_privacy.py \
 
 ## Certification evidence
 
-- Final required Go CI (19/19): [run 31646252480](https://github.com/lovitus/gust/actions/runs/31646252480)
-- Pinned/latest compatibility on the code-identical parent: [run 31644445447](https://github.com/lovitus/gust/actions/runs/31644445447)
-- Matching gust-x `singbox-backend` branch policy: [run 31644441656](https://github.com/lovitus/gust-x/actions/runs/31644441656)
+- Functional code baseline (19/19): [run 31646252480](https://github.com/lovitus/gust/actions/runs/31646252480)
+- Reporting/policy baseline (19/19): [run 31661558459](https://github.com/lovitus/gust/actions/runs/31661558459)
+- Pinned/latest compatibility on that reporting/policy baseline:
+  [run 31661558468](https://github.com/lovitus/gust/actions/runs/31661558468)
+- Matching gust-x reporting/policy branch check:
+  [run 31661536717](https://github.com/lovitus/gust-x/actions/runs/31661536717)
 - Earlier six-platform build-only release rehearsal: [run 31265090521](https://github.com/lovitus/gust/actions/runs/31265090521)
 
-The local recovery package records exact permanent branch refs, fixed-runner
-performance evidence and any later documentation-only branch CI without
-embedding maintainer-private runner metadata in this repository.
+These exact runs certify the named immutable subjects. The moving branch HEAD
+must still pass its own required workflows before a release; this document does
+not recursively embed its own future commit SHA. The local recovery package
+records exact permanent branch refs, fixed-runner performance evidence and
+later documentation-only branch CI without embedding maintainer-private runner
+metadata in this repository.
 
 The acceptance matrix is PASS. Publishing still requires a clean pushed source
 branch and an `singbox-v*` tag contained in `origin/singbox-backend`; the tag

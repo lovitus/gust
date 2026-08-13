@@ -15,22 +15,25 @@
 
 ## 1. 完成状态与最终边界
 
-本轮功能目标已完成，下列已认证功能基线无已知 blocker。本文及能力说明校正仍需在
-提交后完成同等级 CI 和恢复材料刷新，之后才重新满足 clean/pushed/green 发布条件。
-没有自动创建 release tag；是否发布 `singbox-v*` 仍是独立维护者决定。
+本轮功能目标已完成，已认证功能基线无已知 blocker；报告、能力说明、CI 和离线恢复
+材料也已完成同等级收口。没有自动创建 release tag；是否发布 `singbox-v*` 仍是独立
+维护者决定。会随维护推进变化的 branch HEAD 和最新 workflow run 不在本文递归声明为
+“永远最终”，应以远端 `singbox-backend`、GitHub Actions 和维护者恢复状态入口为准。
 
-本文提交前的已认证功能/文档基线：
+可复算的已认证基线：
 
 ```text
 go-gost/core logger fix  6474e707cba7ccc968123795132c3b17dda42a17
 Gust master              f0ae76d2d3be998d7990ef1a1a9a89cadf58f013
 gust-x master            076218ba6f006b1d5714c57cf3912d3d96465f95
-Gust singbox-backend     bccb32a1cc51bad5d8d1ec881b842cf9950016da
-gust-x singbox-backend   ec4d820b0d20680fc05abe4a6545f29bfa4649d1
+Gust functional code     aacea402ab96d3d414c20a0f9baa9fa7b7780abb
+Gust reporting/policy    00df0af8c8e3ef428a02096a3a594ca32140d132
+gust-x reporting/policy  6388338da2de795f0eccd5d26e82b01308310899
 ```
 
-本报告提交仅是 Gust `singbox-backend=bccb32a` 的 documentation-only 后代；它不改变
-表中其他仓库 refs、Gust 数据面或既有认证结果。
+`00df0af` 与 `6388338` 校正了报告、能力说明、CI/asset policy 断言和手册回归，但没有
+修改 embedded runtime 数据面。此后的纯文档校正也不会改变表中的功能基线；每个实际
+branch HEAD 仍必须独立满足 clean、pushed、green 后才可发布。
 
 分支关系固定为单向：
 
@@ -291,9 +294,9 @@ context。
 | Gust master CI | `f0ae76d`, run 31643007072 | 6/6 success |
 | gust-x master policy | `076218b`, run 31643004524 | success |
 | singbox functional CI | `aacea402`, run 31646252480 | 19/19 success |
-| 最终认证文档头 | `bccb32a`, run 31650081944 | 19/19 success |
-| pinned/latest compatibility | code-identical parent `c98c8f2`, run 31644445447 | both success |
-| gust-x singbox policy | `ec4d820`, run 31644441656 | success |
+| 报告/策略基线 | `00df0af`, run 31661558459 | 19/19 success |
+| pinned/latest compatibility | `00df0af`, run 31661558468 | both success |
+| gust-x 报告/策略基线 | `6388338`, run 31661536717 | success |
 
 19-job singbox workflow 包含 3 个 test suites、4 个 Docker E2E shards、Mihomo UoT、
 5 个 cross-build 和 6 个 native platform smokes。embedded suite 还包含 full tags、Linux
@@ -306,13 +309,14 @@ ShadowTLS、WireGuard endpoint、Direct，以及 Linux TUN、REDIRECT、TProxy�
 
 私有 runner 只在公开材料中称 A/B/C；高性能 runner C 优先承担 Linux/Docker/netns
 和 dependency remote equivalence 等严格机器门禁，性能则记录为 generic fixed Linux
-runner。原始地址和日志不进入 Git 仓库。最终证据不是把一次旧 runner 日志冒充最终
-SHA 全量重跑，而是：机器专属 gate、绑定最终 `ec4d820` 的性能基线、最终 GitHub
-19/19 的组合。
+runner。原始地址和日志不进入 Git 仓库。最终证据不是把一次旧 runner 日志冒充后续
+提交的全量重跑，而是：机器专属 gate、绑定 `ec4d820` 功能树的性能基线，以及绑定
+报告/策略基线的 GitHub 19/19 组合。后续若 runtime、依赖或性能相关配置发生变化，
+必须重建对应证据，不能沿用本表。
 
 ### 固定 runner 性能
 
-最终基线绑定 gust-x `ec4d820`、Go 1.26.5、完整 tags、CGO disabled：
+固定性能基线绑定 gust-x 功能树 `ec4d820`、Go 1.26.5、完整 tags、CGO disabled：
 
 - TCP：同一 pinned sing-box 实现的 native direct baseline 673.82 MB/s，Gust
   674.31 MB/s，100.07%；
