@@ -2,7 +2,9 @@
 
 This document describes the durable integration boundary. User-facing syntax
 and examples are in `cmd/gost/SINGBOX_MANUAL.md`; data-plane evidence is in
-`SINGBOX-VALIDATION.md`.
+`SINGBOX-VALIDATION.md`; the completed goal, retained code, dependency forks,
+discarded experiments and upstream replay map are summarized in
+`SINGBOX-INTEGRATION-FINAL-REPORT.md`.
 
 ## Product and dependency boundary
 
@@ -100,6 +102,9 @@ declared sources, including fetching an explicitly supplied remote config URL.
   system-direct retry.
 - Native background activity without an unambiguous router scope may not guess
   a route or silently use system direct.
+- Registry presence is not activation permission. Naive outbound, Tailscale
+  endpoint, DHCP DNS and the resolved service are globally rejected; a
+  WireGuard endpoint is supported only without a preceding GOST prefix.
 
 ## Performance boundary
 
@@ -112,8 +117,9 @@ handle. Cache anchors close with their owning Transport.
 The costs that remain are native protocol cryptography/handshakes, ordinary
 GOST service and chain work, a larger release binary, one inbound Box per
 listener, and one cached runtime per distinct embedded outbound route scope.
-Fixed-runner gates compare the integration boundary with the pinned official
-sing-box implementation; they do not claim a universal WAN percentage.
+Fixed-runner gates compare the integration boundary with the same pinned
+sing-box implementation's native direct path; they do not claim a universal
+WAN percentage.
 
 ## Upgrade and release rules
 

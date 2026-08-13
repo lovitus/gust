@@ -49,7 +49,7 @@ The branch-specific Go CI runs for pushes and pull requests targeting
 
 - standard/singbox flavor separation and `-singboxmanual`;
 - native schema, lifecycle, race and protocol data paths;
-- Linux Naive with the matching Cronet runtime;
+- Naive inbound plus a fail-closed Naive outbound policy check;
 - Linux, Windows and Darwin on amd64 and arm64 native runners;
 - package contents, notices, manuals, validation record and runtime libraries.
 
@@ -110,12 +110,16 @@ default download and package-manager source.
 
 ## Sing-box assets
 
-- Linux amd64/arm64: binary plus `libcronet.so`, including Naive.
-- Windows amd64/arm64: binary plus `libcronet.dll`, including Naive.
-- Darwin amd64/arm64: reproducible limited build without Naive or CCM.
+- Linux amd64/arm64: binary plus `libcronet.so`; Naive inbound is available,
+  while Naive outbound is policy-rejected.
+- Windows amd64/arm64: binary plus `libcronet.dll`; Naive inbound is available,
+  while Naive outbound is policy-rejected.
+- Darwin amd64/arm64: reproducible limited build without the Naive outbound
+  tag or CCM; Naive inbound remains available.
 
 Each archive includes `feature-manifest.json`, `SINGBOX-MANUAL.md`,
-`SINGBOX-ARCHITECTURE.md`, `SINGBOX-VALIDATION.md`, the tested
+`SINGBOX-ARCHITECTURE.md`, `SINGBOX-INTEGRATION-FINAL-REPORT.md`,
+`SINGBOX-VALIDATION.md`, the tested
 `examples/singbox` templates, GPLv3, sing-box notices and the exact Gust/gust-x
 source revisions. The release also publishes `checksums.txt`.
 

@@ -29,7 +29,25 @@ func TestSingboxManualEmbedded(t *testing.T) {
 			t.Errorf("embedded manual is missing %q", required)
 		}
 	}
+	for _, required := range []string{
+		"Naive outbound is not an embedded capability",
+		"Tailscale endpoints are rejected in all modes",
+		"WireGuard endpoint | PASS | PASS | Unscoped only",
+	} {
+		if !strings.Contains(manual, required) {
+			t.Errorf("embedded manual is missing current capability boundary %q", required)
+		}
+	}
 	if !strings.HasSuffix(manual, "\n") {
 		t.Error("embedded manual must end with a newline")
+	}
+	for _, obsolete := range []string{
+		"SSH, Naive | PASS",
+		"WireGuard or Tailscale endpoint",
+		"For Naive, verify the Cronet library",
+	} {
+		if strings.Contains(manual, obsolete) {
+			t.Errorf("embedded manual retains obsolete capability claim %q", obsolete)
+		}
 	}
 }

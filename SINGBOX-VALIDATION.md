@@ -8,13 +8,20 @@
 - Certified release: `singbox-v3.2.12`
 - Certified Gust revision: `f7f88dbba0679536e6103b467ade134c0c6882c9`
 - gust-x revision: `1b367c99607ec788540518ab8d9abfd5b2307b44`
-- Pinned sing-box: `v1.13.16`
+- Certified release pin: `v1.13.16`
+- Current branch pin: `v1.13.17-0.20260811025254-2926c94dd073`
+  (maintainer-fork pseudo-version based on upstream `v1.13.16`)
 - Certification toolchain: `go1.26.5`
 
 This record covers the complete embedded direction pair: native sing-box
 inbounds selected by `-L`, native outbounds/endpoints selected by `-F`, and
 their composition through an ordinary GOST chain. A port opening or successful
 parse is never counted as a protocol data-plane pass.
+
+The protocol and policy matrices below describe the current branch unless a
+paragraph explicitly labels historical `singbox-v3.2.12` evidence. That release
+allowed a Linux Naive outbound; the current embedded resource contract rejects
+Naive outbound on every platform while retaining Naive inbound.
 
 ## How to read this record
 
@@ -114,6 +121,9 @@ selected inbound's complete native detour closure.
 | Unknown native resource behavior rejected fail-closed | PASS |
 | Native services/APIs/DNS/NTP/rule-set resources without extractor rejected | PASS |
 | Unsupported generic GOST service wrappers rejected explicitly | PASS |
+| Naive outbound IPC/loopback bridge rejected on every platform | PASS |
+| Tailscale endpoint, DHCP DNS and resolved service rejected | PASS |
+| WireGuard endpoint accepted only without a preceding GOST prefix | PASS |
 
 The checked-in manifest is generated from the pinned sing-box registration
 source with build constraints. CI regenerates it and fails on drift. The full
@@ -163,8 +173,8 @@ The ordinary outbound matrix uses the same evidence rule:
 | Hysteria2 | PASS | PASS | native QUIC peer |
 | TUIC | PASS | PASS | native QUIC peer |
 | SSH | PASS | n/a | authenticated SSH channel |
-| Naive | PASS | n/a | real HTTP/2 CONNECT and Naive framing |
-| WireGuard endpoint | PASS | PASS | selected endpoint path |
+| Naive | POLICY REJECTED | POLICY REJECTED | fixed fail-closed IPC/loopback error |
+| WireGuard endpoint | PASS | PASS | selected endpoint path, unscoped only |
 | Direct | PASS | PASS | control and prefix-route baseline |
 
 Outbound chaining additionally retains domain destination, remote DNS,
@@ -338,9 +348,11 @@ exception, not a product pass. Four independent Linux kernels completed the
 same real TProxy TCP/UDP data path.
 
 CI cross-builds and native smoke cover Linux amd64/arm64, Windows amd64/arm64
-and Darwin amd64/arm64. Linux and Windows packages include the matching Cronet
-library for Naive outbound. Darwin records `naive_outbound` and CCM as
-unavailable; Naive inbound remains available.
+and Darwin amd64/arm64. Linux and Windows full-feature packages still include
+the matching Cronet library required by the compiled native graph, but every
+platform records `naive_outbound` as unavailable because embedded activation
+policy rejects its IPC/loopback bridge. Darwin additionally records CCM as
+unavailable and omits Cronet. Naive inbound remains available everywhere.
 
 ### Supplemental fleet run on 2026-08-08
 

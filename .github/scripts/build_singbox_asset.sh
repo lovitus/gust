@@ -65,6 +65,7 @@ cp cmd/gost/SINGBOX_MANUAL.md "${stage}/SINGBOX-MANUAL.md"
 cp SINGBOX-VALIDATION.md "${stage}/SINGBOX-VALIDATION.md"
 cp SINGBOX-PERFORMANCE-BASELINE.json "${stage}/SINGBOX-PERFORMANCE-BASELINE.json"
 cp SINGBOX-ARCHITECTURE.md "${stage}/SINGBOX-ARCHITECTURE.md"
+cp SINGBOX-INTEGRATION-FINAL-REPORT.md "${stage}/SINGBOX-INTEGRATION-FINAL-REPORT.md"
 mkdir -p "${stage}/examples/singbox"
 cp examples/singbox/README.md examples/singbox/*.json "${stage}/examples/singbox/"
 cp licenses/GPL-3.0.txt "${stage}/GPL-3.0.txt"
@@ -75,7 +76,10 @@ if [[ "${gpl_digest}" != 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c
 fi
 
 runtime_files=("${binary_name}")
-unavailable_features=(badlinkname tfogo_checklinkname0)
+# The full Linux/Windows build still links the pinned Cronet module, but the
+# embedded resource policy rejects Naive outbound on every platform because
+# its native data path requires an IPC/loopback bridge.
+unavailable_features=(badlinkname tfogo_checklinkname0 naive_outbound)
 case "${target_goos}" in
   linux)
     cronet_module="github.com/sagernet/cronet-go/lib/linux_${target_goarch}"
@@ -88,7 +92,7 @@ case "${target_goos}" in
   darwin)
     cronet_module=""
     cronet_name=""
-    unavailable_features+=(naive_outbound ccm)
+    unavailable_features+=(ccm)
     ;;
 esac
 if [[ -n "${cronet_module}" ]]; then

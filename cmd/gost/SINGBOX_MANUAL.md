@@ -21,11 +21,13 @@ parse a `+singbox` URI and render it with `-O`, but it cannot start the
 embedded runtime. Download an asset whose name starts with
 `gust-with-singbox` when runtime support is required.
 
-The sing-box release assets contain a `feature-manifest.json`. On Linux and
-Windows, keep the bundled `libcronet.so` or `libcronet.dll` beside the binary
-when using a Naive **outbound**. Darwin does not include the Cronet-based Naive
-outbound or CCM; a Naive inbound is still available because its server path
-does not use Cronet.
+The sing-box release assets contain a `feature-manifest.json`. Linux and
+Windows full-feature archives still contain the matching `libcronet.so` or
+`libcronet.dll` required by their compiled native graph. The embedded resource
+policy nevertheless rejects Naive **outbound** on every platform because the
+pinned native path requires an IPC/loopback bridge. Naive inbound remains
+available and does not use Cronet. Darwin also omits the Naive outbound and CCM
+build tags.
 
 ## 2. Configuration model
 
@@ -100,7 +102,9 @@ singbox://?config=<full-config-file>&endpoint=<tag>     # with -F
 
 Stable aliases include `ss` for `shadowsocks`, `socks4`, `socks4a`, `socks5`,
 `hy2` for `hysteria2`, and `wg` for the WireGuard endpoint. Protocol and field
-names follow the sing-box v1.13.16 schema selected by direction.
+names follow maintainer-fork pseudo-version
+`v1.13.17-0.20260811025254-2926c94dd073`, based on the upstream sing-box
+v1.13.16 schema, selected by direction.
 
 ### Native inbound (`-L`)
 
@@ -225,15 +229,18 @@ payloads. It never means only that a URI parsed or a port opened.
 | Reality / Vision | PASS | n/a in certified profiles | Key/SNI/short ID/flow must match |
 | AnyTLS | PASS | PASS | TLS and UoT support |
 | Hysteria2, TUIC | PASS | PASS | QUIC/UDP reachability |
-| SSH, Naive | PASS | n/a | Native protocol handshake |
-| WireGuard endpoint | PASS | PASS | Select with `endpoint=` |
+| SSH | PASS | n/a | Native protocol handshake |
+| Naive | POLICY REJECTED | POLICY REJECTED | Pinned path requires an IPC/loopback bridge |
+| WireGuard endpoint | PASS | PASS | Unscoped only; select with `endpoint=` |
 | Direct | PASS | PASS | Baseline and explicit native route |
 
 ShadowsocksR is a removed sing-box compatibility stub and is rejected. A
-protocol marked `n/a` does not gain UDP support from Gust. Platform packaging
-also matters: Darwin lacks the Cronet Naive outbound and CCM, while the Naive
-inbound remains available. Inspect `feature-manifest.json` instead of assuming
-that a type compiled for one platform exists on another.
+protocol marked `n/a` does not gain UDP support from Gust. Tailscale endpoints,
+DHCP DNS and the resolved service are rejected in every embedded mode;
+WireGuard endpoints are rejected only when a preceding GOST route would require
+them to join a connected prefix scope. Inspect `feature-manifest.json` for the
+compiled registry and this policy table for activation support: a compiled type
+is not automatically authorized to start.
 
 Percent-encode reserved characters in user information and paths. For
 example, `@` in a password becomes `%40`, `/ws` can be written `%2Fws`, and a
@@ -332,7 +339,8 @@ native inbound multiplexing can remain readable:
 gost -L 'singbox://?json=./ss-inbound.json' -F 'direct://'
 ```
 
-Direction still matters. In sing-box v1.13.16, Shadowsocks `plugin`,
+Direction still matters. In the pinned fork based on sing-box v1.13.16,
+Shadowsocks `plugin`,
 `plugin_opts` and `udp_over_tcp` are outbound fields, while inbound
 `multiplex` is a different server schema. A client node containing plugin,
 UoT v2 and multiplex settings should therefore be used unchanged with `-F`:
@@ -394,12 +402,17 @@ gost -L 'singbox://?config=/etc/sing-box/server.json&inbound=entry' \
   -F 'direct://'
 ```
 
-For a WireGuard or Tailscale endpoint, select it with `endpoint=`:
+For an unscoped WireGuard endpoint, select it with `endpoint=`:
 
 ```bash
 gost -L 'socks5://127.0.0.1:1080' \
-  -F 'singbox://?config=/etc/sing-box/config.json&endpoint=tailnet'
+  -F 'singbox://?config=/etc/sing-box/config.json&endpoint=wireguard'
 ```
+
+Do not put an ordinary GOST node before that WireGuard endpoint: its native
+multi-destination packet socket cannot be represented by the connected prefix
+adapter. Tailscale endpoints are rejected in all modes because they mutate
+process-global network hooks.
 
 With `-F`, only one of `outbound=` and `endpoint=` may be present; native
 inbounds are not activated. With `-L`, `inbound=` is required. Only that
@@ -781,9 +794,10 @@ to make a test pass.
 - Restrict TUN/TProxy capabilities, routes and firewall changes to the smallest
   required scope. Do not run the entire service privileged when only a helper
   or isolated environment needs network administration.
-- Keep the release binary, feature manifest and Cronet library from the same
-  archive and verify the published checksum. Do not mix libraries between
-  versions or architectures.
+- Keep the release binary, feature manifest and any bundled runtime library
+  from the same archive and verify the published checksum. Do not mix runtime
+  files between versions or architectures. A bundled Cronet library does not
+  override the Naive outbound policy rejection.
 - Pin and review the complete native config. Unknown fields and newer schema
   fields are rejected rather than silently ignored by the validated version.
 - Verify a negative request never reaches the target. Authentication, prefix
@@ -836,26 +850,26 @@ listener. Use the standard flavor when none of the embedded protocols is
 needed. Scope count is determined by configured route combinations rather than
 packet count; all cached anchors close with their owning Transport.
 
-The `singbox-v3.2.12` release has fixed-runner evidence against the same
-official sing-box v1.13.16 direct inbound. Five raw samples are included in
+The current fork-pin candidate has fixed-runner evidence against the same
+pinned native implementation's direct inbound baseline. Five raw samples are included in
 `SINGBOX-PERFORMANCE-BASELINE.json`:
 
-| Controlled comparison | Gust / official or measured result | Release gate |
+| Controlled comparison | Gust / pinned native direct or measured result | Release gate |
 |---|---:|---:|
-| TCP throughput median | 99.93% | at least 90% |
-| UDP PPS median | 100.56% | at least 90% |
-| TCP round-trip p95 / p99 | 100.16% / 105.09% | at most 110% |
-| UDP round-trip p95 / p99 | 100.38% / 96.18% | at most 110% |
-| `__gust_egress` UDP write | 151.6 ns/op, 96 B, 2 allocs | at most 128 B and 2 allocs |
-| Retained runtime handle | 221.4 ns/op, 80 B, 1 alloc | at most 1% of decode/construct median, 96 B and 1 alloc |
-| Route-scope cache hit | 257.0 ns/op, 80 B, 1 alloc | at most 96 B and 1 alloc |
+| TCP throughput median | 100.07% | at least 90% |
+| UDP PPS median | 101.29% | at least 90% |
+| TCP round-trip p95 / p99 | 99.96% / 101.39% | at most 110% |
+| UDP round-trip p95 / p99 | 100.66% / 100.73% | at most 110% |
+| `__gust_egress` UDP write | 150.6 ns/op, 96 B, 2 allocs | at most 128 B and 2 allocs |
+| Retained runtime handle | 221.5 ns/op, 80 B, 1 alloc | at most 1% of decode/construct median, 96 B and 1 alloc |
+| Route-scope cache hit | 262.1 ns/op, 80 B, 1 alloc | at most 96 B and 1 alloc |
 | Direct / proxy UDP read | 0 B, 0 allocs / 24 B, 1 alloc | at most 0/0 and 64 B/1 alloc |
-| Fixed-port reload p95 | 3.78 ms | at most 5 ms |
+| Fixed-port reload p95 | 3.59 ms | at most 5 ms |
 
 The one-Box-per-`-L` resource baseline measured 8 goroutines and 4 file
-descriptors per live Box. Median startup was 5.11 ms for one Box, 33.42 ms for
-10 and 218.10 ms for 50; median live heap delta was about 0.31, 3.08 and
-15.20 MB respectively. All 20 fresh-process samples returned goroutine and FD
+descriptors per live Box. Median startup was 5.17 ms for one Box, 32.90 ms for
+10 and 207.22 ms for 50; median live heap delta was about 0.31, 3.01 and
+14.98 MB respectively. All 20 fresh-process samples returned goroutine and FD
 counts exactly to baseline after Close.
 
 These results prove the direct inbound-to-GOST integration boundary meets its
@@ -896,7 +910,8 @@ protocol throughput.
    types without publishing the secret-bearing output.
 5. Test through the local `-L` proxy to a controlled TCP/UDP/DNS target.
 6. For TLS and Reality, verify SNI, ALPN, public key, short ID, UUID and flow.
-7. For Naive, verify the Cronet library is beside the executable.
+7. For Naive inbound, no Cronet library is required. Naive outbound is not an embedded capability
+   and must return the documented policy error.
 8. Use `-D` for debug logs. Configuration errors identify field paths but
    intentionally redact passwords, private keys, tokens and complete JSON.
 
@@ -915,8 +930,9 @@ Boxes remain service-owned. Reload starts the new runtime/service before
 retiring the old one, and active outbound TCP/UDP leases keep an old pooled
 runtime alive until the connection closes.
 
-The validated schema is pinned to sing-box v1.13.16. Fields introduced by a
-newer sing-box release are not automatically accepted. Native `-L` startup
+The validated schema is pinned to maintainer-fork pseudo-version
+`v1.13.17-0.20260811025254-2926c94dd073`, based on upstream sing-box v1.13.16.
+Fields introduced by another sing-box release are not automatically accepted. Native `-L` startup
 is explicit: a full config activates only the selected inbound and its exact
 declared dependency closure.
 

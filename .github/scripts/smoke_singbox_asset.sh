@@ -28,8 +28,18 @@ test -f "${asset_root}/SINGBOX-MANUAL.md"
 test -f "${asset_root}/SINGBOX-VALIDATION.md"
 test -f "${asset_root}/SINGBOX-PERFORMANCE-BASELINE.json"
 test -f "${asset_root}/SINGBOX-ARCHITECTURE.md"
+test -f "${asset_root}/SINGBOX-INTEGRATION-FINAL-REPORT.md"
 test -f "${asset_root}/examples/singbox/README.md"
 python3 -m json.tool "${asset_root}/SINGBOX-PERFORMANCE-BASELINE.json" >/dev/null
+python3 - "${asset_root}/feature-manifest.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    manifest = json.load(stream)
+if "naive_outbound" not in manifest["unavailableFeatures"]:
+    raise SystemExit("feature manifest must record the embedded Naive outbound policy boundary")
+PY
 preflight="$(
   cd "${asset_root}"
   "${binary}" -singboxcheck \
@@ -100,7 +110,7 @@ python3 tests/e2e/scripts/socks5_udp_client.py \
   --target 127.0.0.1:15353 --dns-name test.example.com \
   | grep -F 'DNS PASS:'
 
-if python3 -c 'import json,sys; sys.exit("naive_outbound" in json.load(open(sys.argv[1], encoding="utf-8"))["unavailableFeatures"])' \
+if python3 -c 'import json,sys; sys.exit(0 if "with_naive_outbound" in json.load(open(sys.argv[1], encoding="utf-8"))["buildTags"] else 1)' \
   "${asset_root}/feature-manifest.json"; then
   naive_log="${RUNNER_TEMP:-/tmp}/singbox-naive.log"
   (

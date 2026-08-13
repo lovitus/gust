@@ -18,7 +18,9 @@ See [FORK_CHANGES.md](FORK_CHANGES.md) for detailed technical documentation and 
 
 嵌入式 sing-box 用户可直接运行 `gost -singboxmanual` 查看离线手册；仓库版本见
 [Sing-box 使用手册](cmd/gost/SINGBOX_MANUAL.md)，完整验收结果、协议和六平台矩阵见
-[Sing-box 验证记录](SINGBOX-VALIDATION.md)。
+[Sing-box 验证记录](SINGBOX-VALIDATION.md)。本轮融合的代码逻辑、master/扩展边界、
+依赖 fork、保留与隔离决定及后续上游重放方法集中记录在
+[Sing-box 融合最终技术总账](SINGBOX-INTEGRATION-FINAL-REPORT.md)。
 
 开发与发布长期分离：标准版使用 `master` 和 `v*` tag；嵌入式版本使用
 `singbox-backend` 和 `singbox-v*` tag。两条发布线互不更新对方的资产或软件包渠道，

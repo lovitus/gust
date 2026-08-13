@@ -18,15 +18,17 @@ nested paths, exact JSON values and URL-safe secret handling. Runtime chain
 integration supports request-scoped GOST prefix routes, multi-level self-dialing
 nodes, native typed option validation, full config dependency graphs and a
 content-hash/singleflight/refcount runtime pool. Prefix failures are fail-closed;
-selector/urltest background activity keeps the original config network semantics.
+every potentially active background network leaf must be proven to reach the
+same prefix scope or the scoped configuration is rejected.
 Configuration-file metadata supports nested options and json/config references.
 
 `gust-with-singbox` release assets cover Linux amd64/arm64, Windows
-amd64/arm64 and Darwin amd64/arm64. Linux and Windows use the upstream pure-Go
-Cronet loader and bundle the matching shared library for Naive. Darwin omits
-Naive and CCM in its reproducible `CGO_ENABLED=0` flavor and declares both in
-the feature manifest. Each archive contains exact source refs, GPLv3 text and
-upstream license notices. Full usage and lifecycle documentation is in
+amd64/arm64 and Darwin amd64/arm64. Linux and Windows full-feature builds use
+the upstream pure-Go Cronet loader and bundle its matching shared library, but
+embedded policy rejects Naive outbound on every platform; Naive inbound remains
+available. Darwin additionally omits the Naive outbound tag and CCM in its
+reproducible `CGO_ENABLED=0` flavor. Each archive contains exact source refs,
+GPLv3 text and upstream license notices. Full usage and lifecycle documentation is in
 https://github.com/lovitus/gust-x/blob/singbox-backend/docs/singbox.md.
 
 Gust and gust-x maintain this flavor on matching `singbox-backend` branches.

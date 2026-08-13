@@ -117,7 +117,8 @@ jobs:
         run: >-
           python3 .github/scripts/check_doc_privacy.py
           MAINTENANCE.md RELEASE.md SINGBOX-NOTICE.md
-          SINGBOX-ARCHITECTURE.md SINGBOX-VALIDATION.md
+          SINGBOX-ARCHITECTURE.md SINGBOX-INTEGRATION-FINAL-REPORT.md
+          SINGBOX-VALIDATION.md
           cmd/gost/SINGBOX_MANUAL.md examples/singbox/README.md
 
       - name: Verify fixed-runner sing-box performance baseline
@@ -231,7 +232,7 @@ jobs:
           set -euo pipefail
           tags="$(bash .github/scripts/singbox-tags.sh)"
           cronet_dir="$(cd ../gust-x && go list -m -f '{{.Dir}}' github.com/sagernet/cronet-go/lib/linux_amd64)"
-          protocol_tests='^(TestNativeProtocolTCPDataPath|TestNativeHysteria2TCPDataPath|TestNativeTUICTCPDataPath|TestNativeSSHTCPDataPath|TestNativeVLESSRealityTCPDataPath|TestNativeNaiveTCPDataPath|TestEmbeddedInboundTCPProtocolMatrix|TestEmbeddedNaiveInboundUsesGOSTRouter|TestEmbeddedInboundQUICProtocolMatrix|TestEmbeddedDirectInboundUsesGOSTRouter|TestEmbeddedVLESSRealityInboundUsesGOSTRouter|TestEmbeddedShadowTLSDetourActivationUsesGOSTRouter)$'
+          protocol_tests='^(TestNativeProtocolTCPDataPath|TestNativeHysteria2TCPDataPath|TestNativeTUICTCPDataPath|TestNativeSSHTCPDataPath|TestNativeVLESSRealityTCPDataPath|TestNativeNaiveOutboundRejectedByPolicy|TestEmbeddedInboundTCPProtocolMatrix|TestEmbeddedNaiveInboundUsesGOSTRouter|TestEmbeddedInboundQUICProtocolMatrix|TestEmbeddedDirectInboundUsesGOSTRouter|TestEmbeddedVLESSRealityInboundUsesGOSTRouter|TestEmbeddedShadowTLSDetourActivationUsesGOSTRouter)$'
           (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -p 1 -race -tags "${tags}" \
             -skip "${protocol_tests}" \
             ./backend/singbox \
@@ -240,9 +241,10 @@ jobs:
             ./chain \
             ./config/parsing/node \
             ./hop)
-          # HTTP/2 and gRPC transport initialization in sing-box v1.13.16 has
-          # upstream race-detector findings. Keep Gust lifecycle and config
-          # integration under -race, and run real protocol data paths normally.
+          # HTTP/2 and gRPC transport initialization in the pinned fork has
+          # historically had upstream race-detector findings. Keep Gust
+          # lifecycle and configuration integration under -race, and run the
+          # selected protocol data paths normally.
           (cd ../gust-x && LD_LIBRARY_PATH="${cronet_dir}" go test -p 1 -tags "${tags}" \
             -run "${protocol_tests}" ./backend/singbox)
 
