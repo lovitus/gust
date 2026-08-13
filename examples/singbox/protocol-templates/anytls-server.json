@@ -1,0 +1,16 @@
+{
+  "type": "anytls",
+  "tag": "anytls-in",
+  "listen": "0.0.0.0",
+  "listen_port": 8449,
+  "users": [
+    {
+      "password": "REPLACE_WITH_ANYTLS_PASSWORD"
+    }
+  ],
+  "tls": {
+    "enabled": true,
+    "certificate_path": "/etc/gust/tls/server.crt",
+    "key_path": "/etc/gust/tls/server.key"
+  }
+}

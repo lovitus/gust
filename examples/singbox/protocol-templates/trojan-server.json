@@ -1,0 +1,16 @@
+{
+  "type": "trojan",
+  "tag": "trojan-in",
+  "listen": "0.0.0.0",
+  "listen_port": 8447,
+  "users": [
+    {
+      "password": "REPLACE_WITH_TROJAN_PASSWORD"
+    }
+  ],
+  "tls": {
+    "enabled": true,
+    "certificate_path": "/etc/gust/tls/server.crt",
+    "key_path": "/etc/gust/tls/server.key"
+  }
+}

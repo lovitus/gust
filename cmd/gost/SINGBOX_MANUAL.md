@@ -125,7 +125,7 @@ gost \
 gost -L 'ss+singbox://chacha20-ietf-poly1305:SECRET@0.0.0.0:8388'
 
 # VLESS Reality server (use its native private key and handshake target)
-gost -L 'vless+singbox://UUID@0.0.0.0:443?tls.enabled=true&tls.server_name=example.com&tls.reality.enabled=true&tls.reality.private_key=PRIVATE_KEY&tls.reality.short_id=SHORT_ID&tls.reality.handshake.server=example.com&tls.reality.handshake.server_port:=443'
+gost -L 'vless+singbox://0.0.0.0:443?users:=[{"uuid":"00000000-0000-4000-8000-000000000001","flow":"xtls-rprx-vision"}]&tls.enabled=true&tls.server_name=example.com&tls.reality.enabled=true&tls.reality.private_key=PRIVATE_KEY&tls.reality.short_id:=["01234567"]&tls.reality.handshake.server=example.com&tls.reality.handshake.server_port:=443'
 
 # TUN, REDIRECT and TProxy are Linux/system-resource listeners
 gost -L 'tun+singbox://?interface_name=gust0&address:=["192.0.2.1/30"]&stack=gvisor'

@@ -1,0 +1,14 @@
+{
+  "type": "hysteria2",
+  "tag": "proxy",
+  "server": "server.example.com",
+  "server_port": 8444,
+  "up_mbps": 100,
+  "down_mbps": 300,
+  "password": "REPLACE_WITH_HYSTERIA2_PASSWORD",
+  "tls": {
+    "enabled": true,
+    "server_name": "server.example.com",
+    "alpn": ["h3"]
+  }
+}

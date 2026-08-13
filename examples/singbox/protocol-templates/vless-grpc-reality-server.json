@@ -1,0 +1,28 @@
+{
+  "type": "vless",
+  "tag": "vless-grpc-reality-in",
+  "listen": "0.0.0.0",
+  "listen_port": 8448,
+  "users": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000003"
+    }
+  ],
+  "tls": {
+    "enabled": true,
+    "server_name": "server.example.com",
+    "reality": {
+      "enabled": true,
+      "handshake": {
+        "server": "origin.example.com",
+        "server_port": 443
+      },
+      "private_key": "REPLACE_WITH_REALITY_PRIVATE_KEY",
+      "short_id": ["89abcdef"]
+    }
+  },
+  "transport": {
+    "type": "grpc",
+    "service_name": "example-grpc"
+  }
+}

@@ -30,6 +30,8 @@ test -f "${asset_root}/SINGBOX-PERFORMANCE-BASELINE.json"
 test -f "${asset_root}/SINGBOX-ARCHITECTURE.md"
 test -f "${asset_root}/SINGBOX-INTEGRATION-FINAL-REPORT.md"
 test -f "${asset_root}/examples/singbox/README.md"
+test -f "${asset_root}/examples/singbox/protocol-templates/README.md"
+test -f "${asset_root}/examples/singbox/protocol-templates/vmess-ws-tls-client.json"
 python3 -m json.tool "${asset_root}/SINGBOX-PERFORMANCE-BASELINE.json" >/dev/null
 python3 - "${asset_root}/feature-manifest.json" <<'PY'
 import json

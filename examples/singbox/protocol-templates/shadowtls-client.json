@@ -1,0 +1,29 @@
+{
+  "outbounds": [
+    {
+      "type": "shadowsocks",
+      "tag": "proxy",
+      "server": "server.example.com",
+      "server_port": 8446,
+      "method": "2022-blake3-aes-128-gcm",
+      "password": "MDEyMzQ1Njc4OWFiY2RlZg==",
+      "detour": "shadowtls"
+    },
+    {
+      "type": "shadowtls",
+      "tag": "shadowtls",
+      "server": "server.example.com",
+      "server_port": 8446,
+      "version": 3,
+      "password": "REPLACE_WITH_SHADOWTLS_PASSWORD",
+      "tls": {
+        "enabled": true,
+        "server_name": "origin.example.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      }
+    }
+  ]
+}

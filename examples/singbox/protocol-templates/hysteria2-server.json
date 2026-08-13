@@ -1,0 +1,19 @@
+{
+  "type": "hysteria2",
+  "tag": "hysteria2-in",
+  "listen": "0.0.0.0",
+  "listen_port": 8444,
+  "users": [
+    {
+      "password": "REPLACE_WITH_HYSTERIA2_PASSWORD"
+    }
+  ],
+  "ignore_client_bandwidth": false,
+  "tls": {
+    "enabled": true,
+    "alpn": ["h3"],
+    "min_version": "1.3",
+    "certificate_path": "/etc/gust/tls/server.crt",
+    "key_path": "/etc/gust/tls/server.key"
+  }
+}

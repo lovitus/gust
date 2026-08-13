@@ -1,0 +1,22 @@
+{
+  "type": "vmess",
+  "tag": "proxy",
+  "server": "server.example.com",
+  "server_port": 8450,
+  "uuid": "00000000-0000-4000-8000-000000000004",
+  "security": "auto",
+  "alter_id": 0,
+  "tls": {
+    "enabled": true,
+    "server_name": "server.example.com"
+  },
+  "transport": {
+    "type": "ws",
+    "path": "/vmess-example",
+    "max_early_data": 2560,
+    "early_data_header_name": "Sec-WebSocket-Protocol",
+    "headers": {
+      "Host": "server.example.com"
+    }
+  }
+}

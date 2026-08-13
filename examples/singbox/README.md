@@ -27,8 +27,14 @@ same file, inline JSON and mixed path-override forms described by
 | `remote-dns-outbound.json` | `-F` full config | `-F 'singbox://?config=./examples/singbox/remote-dns-outbound.json&outbound=proxy'` |
 | `tun-inbound.json` | `-L` object | `-L 'singbox://?json=./examples/singbox/tun-inbound.json'` |
 | `tproxy-inbound.json` | `-L` object | `-L 'singbox://?json=./examples/singbox/tproxy-inbound.json'` |
+| `protocol-templates/` | paired `-L` / `-F` catalog | CLI-only, CLI+JSON and Gust JSON-only examples for nine live-validated protocol shapes |
 
 Reality requires a genuinely paired X25519 private/public key, matching SNI,
 short ID and UUID. TUN and TProxy require an isolated Linux network namespace,
 the necessary capabilities, routing and firewall policy. Static validation
 does not prove those runtime prerequisites.
+
+The expanded [protocol template catalog](protocol-templates/README.md) is
+sanitized from maintainer-private live configurations. It includes paired
+server/client objects and shows three equivalent configuration surfaces without
+publishing any real endpoint or credential.

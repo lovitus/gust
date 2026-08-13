@@ -67,7 +67,7 @@ cp SINGBOX-PERFORMANCE-BASELINE.json "${stage}/SINGBOX-PERFORMANCE-BASELINE.json
 cp SINGBOX-ARCHITECTURE.md "${stage}/SINGBOX-ARCHITECTURE.md"
 cp SINGBOX-INTEGRATION-FINAL-REPORT.md "${stage}/SINGBOX-INTEGRATION-FINAL-REPORT.md"
 mkdir -p "${stage}/examples/singbox"
-cp examples/singbox/README.md examples/singbox/*.json "${stage}/examples/singbox/"
+cp -R examples/singbox/. "${stage}/examples/singbox/"
 cp licenses/GPL-3.0.txt "${stage}/GPL-3.0.txt"
 gpl_digest="$(openssl dgst -sha256 "${stage}/GPL-3.0.txt" | awk '{print $NF}')"
 if [[ "${gpl_digest}" != 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986 ]]; then

@@ -1,0 +1,24 @@
+{
+  "type": "vless",
+  "tag": "proxy",
+  "server": "server.example.com",
+  "server_port": 8448,
+  "uuid": "00000000-0000-4000-8000-000000000003",
+  "tls": {
+    "enabled": true,
+    "server_name": "server.example.com",
+    "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+    },
+    "reality": {
+      "enabled": true,
+      "public_key": "REPLACE_WITH_REALITY_PUBLIC_KEY",
+      "short_id": "89abcdef"
+    }
+  },
+  "transport": {
+    "type": "grpc",
+    "service_name": "example-grpc"
+  }
+}

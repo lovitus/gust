@@ -471,3 +471,25 @@ associations out of 100, and 100 packets alternating between two targets in one
 association. Each log contained 102 real target entries and zero `:0` entries.
 The tested binary SHA-256 was
 `646f761466da4c426951ccce318516b6f5d76fb33ec987cfcafa361441196914`.
+
+## Sanitized protocol-template acceptance (2026-08-13)
+
+`examples/singbox/protocol-templates` contains paired server/client objects for
+VLESS Reality Vision, Hysteria2, TUIC, ShadowTLS v3, Shadowsocks 2022, Trojan,
+VLESS gRPC Reality, AnyTLS and VMess WebSocket TLS. The source shapes were
+compared with the maintainer's private sing-box server configuration; all
+endpoints, identities, credentials, keys, pins and service-specific paths were
+replaced before the files entered Git.
+
+The final `-F` objects were replayed against the corresponding live services
+from two independent VPS hosts. All nine protocol shapes passed on both hosts;
+one first-attempt Trojan check was transient and the bounded replay passed 3/3.
+The two unavailable Cloudflare Tunnel nodes are not presented as working
+templates, and Naive outbound remains excluded by the embedded IPC/loopback
+activation policy.
+
+CI parses every template and runs `-singboxcheck` over all paired object files,
+the two-object ShadowTLS detour closure, representative CLI-only forms and the
+two complete Gust JSON-only VMess configurations. Release packaging recursively
+includes the catalog, and native asset smoke verifies its presence. Static
+checks never open a listener, certificate or system resource.

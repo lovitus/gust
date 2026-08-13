@@ -1,0 +1,25 @@
+{
+  "type": "vless",
+  "tag": "vless-reality-in",
+  "listen": "0.0.0.0",
+  "listen_port": 8443,
+  "users": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000001",
+      "flow": "xtls-rprx-vision"
+    }
+  ],
+  "tls": {
+    "enabled": true,
+    "server_name": "server.example.com",
+    "reality": {
+      "enabled": true,
+      "handshake": {
+        "server": "origin.example.com",
+        "server_port": 443
+      },
+      "private_key": "REPLACE_WITH_REALITY_PRIVATE_KEY",
+      "short_id": ["01234567"]
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "services": [
+    {
+      "name": "local-socks",
+      "addr": "127.0.0.1:1080",
+      "listener": {
+        "type": "tcp"
+      },
+      "handler": {
+        "type": "socks5",
+        "chain": "vmess-chain"
+      }
+    }
+  ],
+  "chains": [
+    {
+      "name": "vmess-chain",
+      "hops": [
+        {
+          "name": "vmess-hop",
+          "nodes": [
+            {
+              "name": "vmess-ws-tls",
+              "addr": "server.example.com:8450",
+              "connector": {
+                "type": "singbox",
+                "metadata": {
+                  "protocol": "vmess",
+                  "options": {
+                    "uuid": "00000000-0000-4000-8000-000000000004",
+                    "security": "auto",
+                    "alter_id": 0,
+                    "tls": {
+                      "enabled": true,
+                      "server_name": "server.example.com"
+                    },
+                    "transport": {
+                      "type": "ws",
+                      "path": "/vmess-example",
+                      "max_early_data": 2560,
+                      "early_data_header_name": "Sec-WebSocket-Protocol",
+                      "headers": {
+                        "Host": "server.example.com"
+                      }
+                    }
+                  }
+                }
+              },
+              "dialer": {
+                "type": "direct"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

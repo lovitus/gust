@@ -1,0 +1,8 @@
+{
+  "type": "shadowsocks",
+  "tag": "shadowsocks-in",
+  "listen": "0.0.0.0",
+  "listen_port": 8388,
+  "method": "2022-blake3-aes-128-gcm",
+  "password": "MDEyMzQ1Njc4OWFiY2RlZg=="
+}

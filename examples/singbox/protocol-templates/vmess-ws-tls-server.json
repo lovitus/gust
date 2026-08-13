@@ -1,0 +1,23 @@
+{
+  "type": "vmess",
+  "tag": "vmess-ws-tls-in",
+  "listen": "0.0.0.0",
+  "listen_port": 8450,
+  "users": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000004",
+      "alterId": 0
+    }
+  ],
+  "tls": {
+    "enabled": true,
+    "certificate_path": "/etc/gust/tls/server.crt",
+    "key_path": "/etc/gust/tls/server.key"
+  },
+  "transport": {
+    "type": "ws",
+    "path": "/vmess-example",
+    "max_early_data": 2560,
+    "early_data_header_name": "Sec-WebSocket-Protocol"
+  }
+}

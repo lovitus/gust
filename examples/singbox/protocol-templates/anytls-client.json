@@ -1,0 +1,17 @@
+{
+  "type": "anytls",
+  "tag": "proxy",
+  "server": "server.example.com",
+  "server_port": 8449,
+  "password": "REPLACE_WITH_ANYTLS_PASSWORD",
+  "idle_session_check_interval": "30s",
+  "idle_session_timeout": "30s",
+  "tls": {
+    "enabled": true,
+    "server_name": "server.example.com",
+    "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+    }
+  }
+}

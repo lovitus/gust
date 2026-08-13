@@ -1,0 +1,15 @@
+{
+  "type": "trojan",
+  "tag": "proxy",
+  "server": "server.example.com",
+  "server_port": 8447,
+  "password": "REPLACE_WITH_TROJAN_PASSWORD",
+  "tls": {
+    "enabled": true,
+    "server_name": "server.example.com",
+    "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+    }
+  }
+}

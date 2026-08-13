@@ -1,0 +1,16 @@
+{
+  "type": "tuic",
+  "tag": "proxy",
+  "server": "server.example.com",
+  "server_port": 8445,
+  "uuid": "00000000-0000-4000-8000-000000000002",
+  "password": "REPLACE_WITH_TUIC_PASSWORD",
+  "congestion_control": "bbr",
+  "udp_relay_mode": "native",
+  "zero_rtt_handshake": false,
+  "tls": {
+    "enabled": true,
+    "server_name": "server.example.com",
+    "alpn": ["h3"]
+  }
+}

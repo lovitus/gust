@@ -1,0 +1,30 @@
+{
+  "inbounds": [
+    {
+      "type": "shadowtls",
+      "tag": "shadowtls-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8446,
+      "version": 3,
+      "users": [
+        {
+          "password": "REPLACE_WITH_SHADOWTLS_PASSWORD"
+        }
+      ],
+      "handshake": {
+        "server": "origin.example.com",
+        "server_port": 443
+      },
+      "strict_mode": true,
+      "detour": "shadowtls-inner"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "shadowtls-inner",
+      "listen": "127.0.0.1",
+      "network": "tcp",
+      "method": "2022-blake3-aes-128-gcm",
+      "password": "MDEyMzQ1Njc4OWFiY2RlZg=="
+    }
+  ]
+}
