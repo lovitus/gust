@@ -22,6 +22,7 @@
       "type": "shadowsocks",
       "tag": "shadowtls-inner",
       "listen": "127.0.0.1",
+      "listen_port": 18446,
       "network": "tcp",
       "method": "2022-blake3-aes-128-gcm",
       "password": "MDEyMzQ1Njc4OWFiY2RlZg=="

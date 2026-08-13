@@ -108,6 +108,8 @@ gust-with-singbox -L 'socks5://127.0.0.1:1080?udp=true' \
 ShadowTLS is deliberately not flattened into a single scalar URI. Its
 Shadowsocks inner connection and ShadowTLS outer connection are two tagged
 native objects with an explicit detour relationship; use the JSON form below.
+The inner object has a loopback-only helper port because Gust activates both
+objects as explicit native resources; keep that helper listener private.
 
 ## 2. CLI plus native JSON
 

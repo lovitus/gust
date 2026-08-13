@@ -493,3 +493,40 @@ the two-object ShadowTLS detour closure, representative CLI-only forms and the
 two complete Gust JSON-only VMess configurations. Release packaging recursively
 includes the catalog, and native asset smoke verifies its presence. Static
 checks never open a listener, certificate or system resource.
+
+## Mixed 11-hop chain and SOCKS BIND acceptance (2026-08-14)
+
+Two private Linux VPS hosts exercised the release pair without reusing any
+production credential. VPS A ran one Gust process with nine simultaneous
+native sing-box inbounds (the same protocols listed above), one authenticated
+SOCKS5 inbound with BIND enabled and one SINGS inbound with UoT enabled. VPS B
+constructed one ordered `-F` chain containing all nine native outbounds,
+SOCKS5 and SINGS. Temporary ports, identities, Reality keys, passwords and a
+one-day test certificate were generated only for this run and removed from
+both hosts afterward.
+
+The 11-hop forward chain passed:
+
+| Data plane | Result |
+|---|---:|
+| SOCKS TCP, concurrent short requests | 200/200 |
+| TCP forward, concurrent short requests | 200/200 |
+| SOCKS TCP, 8 MiB response | 10/10 |
+| TCP forward, 8 MiB response | 10/10 |
+| UDP echo, 1200-byte payload | 500/500 |
+| DNS A query over UDP | 500/500 |
+
+The chain was then reordered so authenticated SOCKS5 was the final `-F` hop.
+Its BIND command created the negotiated remote listener; RTCP passed 50/50
+concurrent HTTP round trips. An LTCP consumer traversed the complete chain to
+that remote listener and returned over the RTCP provider path, passing 50/50
+short requests and 10/10 responses of 8 MiB. All participating processes
+remained alive and their final logs contained no fatal, panic or error record.
+
+This runtime check also found that the ShadowTLS helper Shadowsocks inbound
+must have an explicit loopback `listen_port` when Gust activates both objects
+in the detour closure. The checked-in template now supplies that private helper
+port, and CI asserts that it remains loopback-only and non-zero. The exact
+Linux binary SHA-256 used by this run was
+`1f04e683713ec58f0f580ffb9bb9e8f8dde1e7736a9ee7945010adbdc092dcd9`;
+raw logs and private host metadata remain outside the repository.

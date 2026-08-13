@@ -47,6 +47,10 @@ done
 check \
   -L "singbox://?config=${templates}/shadowtls-server.json&inbound=shadowtls-in&activate_inbounds:=[\"shadowtls-in\",\"shadowtls-inner\"]" \
   -F 'direct://'
+jq -e '
+  [.inbounds[] | select(.tag == "shadowtls-inner")][0]
+  | .listen == "127.0.0.1" and (.listen_port > 0)
+' "${templates}/shadowtls-server.json" >/dev/null
 check -L 'socks5://127.0.0.1:1080?udp=true' \
   -F "singbox://?config=${templates}/shadowtls-client.json&outbound=proxy"
 check -C "${templates}/gost-json-only-vmess-server.json"
