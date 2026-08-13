@@ -530,3 +530,49 @@ port, and CI asserts that it remains loopback-only and non-zero. The exact
 Linux binary SHA-256 used by this run was
 `1f04e683713ec58f0f580ffb9bb9e8f8dde1e7736a9ee7945010adbdc092dcd9`;
 raw logs and private host metadata remain outside the repository.
+
+## Native IPv6 mixed-chain acceptance (2026-08-14)
+
+The mixed-chain matrix was repeated between two private Linux hosts that each
+had a native global IPv6 address and IPv6 default route. Both directions first
+passed 10/10 ICMPv6 probes. Every native server object listened on `::` (the
+ShadowTLS helper used `::1`), all 11 client hop addresses used IPv6 literals,
+and the HTTP, UDP echo and DNS targets also used the second host's global IPv6
+literal. No tunnel or address translation was used in the accepted run.
+
+Socket and log audits prevented an IPv4 fallback: the service ports exposed 10
+TCPv6 and three UDPv6 listeners with zero corresponding IPv4 listeners; the
+SOCKS BIND listener and LTCP consumer were TCPv6-only. The final client log
+contained 4,051 native outbound connection records with bracketed IPv6 targets
+and zero non-bracketed target records.
+
+The complete 11-hop chain passed the same data-plane gates over IPv6:
+
+| Data plane | Result |
+|---|---:|
+| SOCKS TCP, concurrent short requests | 200/200 |
+| TCP forward, concurrent short requests | 200/200 |
+| SOCKS TCP, 8 MiB response | 10/10 |
+| TCP forward, 8 MiB response | 10/10 |
+| UDP echo, 1200-byte payload | 500/500 |
+| DNS request over IPv6 UDP transport | 500/500 |
+| SOCKS-final RTCP | 50/50 |
+| SOCKS-final LTCP | 50/50 |
+| LTCP/RTCP return path, 8 MiB response | 10/10 |
+
+An incremental topology check also documented the packet-carrier boundary.
+TCP passed at every depth from one through 11 hops. UDP passed with one through
+three hops; using ShadowTLS/Shadowsocks as the outermost layer at depths four
+and five did not provide the required packet carrier. Trojan restored packet
+transport at depth six, depths six through nine passed, and SOCKS as the
+outermost tenth hop again lacked it. Adding SINGS/UoT as hop 11 restored UDP,
+and the complete target topology passed 500/500. This is an ordering property,
+not an IPv6-specific protocol failure.
+
+The first private host proposed for this check was not used because inspection
+showed only a link-local address and no IPv6 default route. It was replaced by
+another maintainer-provided host with native global IPv6. The replacement
+host's default-drop IPv6 firewall was opened only for the peer's source IPv6
+and the temporary test port range; those rules, all processes, configurations,
+credentials and listeners were removed after evidence capture. Raw host data
+remains in the maintainer-private archive.
