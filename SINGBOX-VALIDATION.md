@@ -259,7 +259,7 @@ rounds, and the release thresholds are checked in at
 `SINGBOX-PERFORMANCE-BASELINE.json`. The runner is identified generically;
 private infrastructure addresses are intentionally excluded. The values below
 qualify the current fork-pin candidate; they do not replace the certified
-`singbox-v3.2.12` release record at the top of this document until the candidate
+release record at the top of this document until the candidate
 branch completes its required workflows and is promoted.
 
 Environment: Linux amd64, Intel Xeon E5-2620 v4, GOMAXPROCS=2, Go 1.26.5,
@@ -269,24 +269,24 @@ SHA-256 are recorded in the baseline file.
 
 | Comparison | Official median | Gust median | Ratio | Gate | Result |
 |---|---:|---:|---:|---:|---:|
-| TCP throughput, 64 KiB echo | 677.39 MB/s | 674.93 MB/s | 99.64% | >=90% | PASS |
-| UDP PPS, 1200-byte echo | 10,905 PPS | 10,807 PPS | 99.11% | >=90% | PASS |
-| TCP round-trip p95 / p99 | 106.871 / 115.781 us | 106.579 / 115.530 us | 99.73% / 99.78% | <=110% | PASS |
-| UDP round-trip p95 / p99 | 106.515 / 121.742 us | 106.972 / 123.102 us | 100.43% / 101.12% | <=110% | PASS |
-| Internal egress UDP write | n/a | 150.3 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
-| Retained runtime handle | 191.50 us decode/construct | 220.1 ns/op | 0.11%, 80 B, 1 alloc | <=1%, <=96 B, <=1 alloc | PASS |
-| Route-scope cache hit | n/a | 261.3 ns/op | 80 B, 1 alloc | <=96 B, <=1 alloc | PASS |
+| TCP throughput, 64 KiB echo | 678.31 MB/s | 676.13 MB/s | 99.68% | >=90% | PASS |
+| UDP PPS, 1200-byte echo | 10,885 PPS | 11,006 PPS | 101.10% | >=90% | PASS |
+| TCP round-trip p95 / p99 | 107.099 / 115.738 us | 107.215 / 116.704 us | 100.11% / 100.83% | <=110% | PASS |
+| UDP round-trip p95 / p99 | 105.472 / 118.496 us | 105.864 / 118.218 us | 100.37% / 99.77% | <=110% | PASS |
+| Internal egress UDP write | n/a | 150.0 ns/op median | 96 B, 2 allocs | <=128 B, <=2 allocs | PASS |
+| Retained runtime handle | 189.97 us decode/construct | 220.2 ns/op | 0.12%, 80 B, 1 alloc | <=1%, <=96 B, <=1 alloc | PASS |
+| Route-scope cache hit | n/a | 259.7 ns/op | 80 B, 1 alloc | <=96 B, <=1 alloc | PASS |
 | Direct / proxy packet read | n/a | 0 B/0 allocs; 24 B/1 alloc | no payload-scaled allocation | <=0/0; <=64 B/1 | PASS |
-| Fixed-port reload pause | n/a | 3.59 ms median, 3.59 ms p95 | n/a | p95 <=5 ms | PASS |
+| Fixed-port reload pause | n/a | 3.57 ms median, 3.59 ms p95 | n/a | p95 <=5 ms | PASS |
 
 Resource medians for the one-Box-per-`-L` baseline:
 
 | Boxes | Startup | Live heap delta | Goroutine delta | FD delta | Median max RSS |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 5.30 ms | 312,496 B | 8 | 4 | 19,955,712 B |
-| 2 | 8.21 ms | 612,176 B | 16 | 8 | 20,488,192 B |
-| 10 | 32.85 ms | 3,025,432 B | 80 | 40 | 24,207,360 B |
-| 50 | 207.49 ms | 14,982,904 B | 400 | 200 | 41,553,920 B |
+| 1 | 5.20 ms | 312,688 B | 8 | 4 | 19,755,008 B |
+| 2 | 8.31 ms | 611,920 B | 16 | 8 | 20,461,568 B |
+| 10 | 32.53 ms | 3,007,208 B | 80 | 40 | 24,272,896 B |
+| 50 | 207.91 ms | 14,983,056 B | 400 | 200 | 41,711,616 B |
 
 Every one of the 40 fresh-process resource samples returned goroutine and FD
 counts exactly to its pre-start baseline after Close. These numbers prove the
@@ -295,9 +295,9 @@ they are not WAN or encrypted-protocol performance claims.
 
 The checker also compares this candidate with the previous accepted baseline,
 whose source revision, medians and baseline-file SHA-256 are retained in the
-new record. TCP throughput changed by +0.09%, UDP operation time by +2.76%,
-and the worst p95/p99 round-trip increase was +5.42%. The worst startup,
-live-heap or RSS median increase was +2.52%; all remain inside their checked 5%
+new record. TCP throughput changed by +0.18%, UDP operation time by -1.80%,
+and the worst p95/p99 round-trip increase was +1.02%. The worst startup,
+live-heap or RSS median increase was +1.19%; all remain inside their checked 5%
 or 10% limits.
 
 ### Supplemental non-gating performance health check

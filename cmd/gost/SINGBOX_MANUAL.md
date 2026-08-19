@@ -900,20 +900,20 @@ pinned native implementation's direct inbound baseline. Five raw samples are inc
 
 | Controlled comparison | Gust / pinned native direct or measured result | Release gate |
 |---|---:|---:|
-| TCP throughput median | 100.07% | at least 90% |
-| UDP PPS median | 101.29% | at least 90% |
-| TCP round-trip p95 / p99 | 99.96% / 101.39% | at most 110% |
-| UDP round-trip p95 / p99 | 100.66% / 100.73% | at most 110% |
-| `__gust_egress` UDP write | 150.6 ns/op, 96 B, 2 allocs | at most 128 B and 2 allocs |
-| Retained runtime handle | 221.5 ns/op, 80 B, 1 alloc | at most 1% of decode/construct median, 96 B and 1 alloc |
-| Route-scope cache hit | 262.1 ns/op, 80 B, 1 alloc | at most 96 B and 1 alloc |
+| TCP throughput median | 99.68% | at least 90% |
+| UDP PPS median | 101.10% | at least 90% |
+| TCP round-trip p95 / p99 | 100.11% / 100.83% | at most 110% |
+| UDP round-trip p95 / p99 | 100.37% / 99.77% | at most 110% |
+| `__gust_egress` UDP write | 150.0 ns/op, 96 B, 2 allocs | at most 128 B and 2 allocs |
+| Retained runtime handle | 220.2 ns/op, 80 B, 1 alloc | at most 1% of decode/construct median, 96 B and 1 alloc |
+| Route-scope cache hit | 259.7 ns/op, 80 B, 1 alloc | at most 96 B and 1 alloc |
 | Direct / proxy UDP read | 0 B, 0 allocs / 24 B, 1 alloc | at most 0/0 and 64 B/1 alloc |
 | Fixed-port reload p95 | 3.59 ms | at most 5 ms |
 
 The one-Box-per-`-L` resource baseline measured 8 goroutines and 4 file
-descriptors per live Box. Median startup was 5.17 ms for one Box, 32.90 ms for
-10 and 207.22 ms for 50; median live heap delta was about 0.31, 3.01 and
-14.98 MB respectively. All 20 fresh-process samples returned goroutine and FD
+descriptors per live Box. Median startup was 5.20 ms for one Box, 32.53 ms for
+10 and 207.91 ms for 50; median live heap delta was about 0.31, 3.01 and
+14.98 MB respectively. All 40 fresh-process samples returned goroutine and FD
 counts exactly to baseline after Close.
 
 These results prove the direct inbound-to-GOST integration boundary meets its
