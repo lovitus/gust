@@ -4,6 +4,8 @@ go 1.26.3
 
 replace github.com/go-gost/x => ../gust-x
 
+replace github.com/go-gost/core => github.com/lovitus/core v0.6.1-0.20260811040936-6474e707cba7
+
 require (
 	fyne.io/fyne/v2 v2.8.0
 	github.com/go-gost/core v0.6.0

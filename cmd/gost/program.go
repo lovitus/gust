@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -19,7 +17,6 @@ import (
 	"github.com/go-gost/x/config/loader"
 	auth_parser "github.com/go-gost/x/config/parsing/auth"
 	"github.com/go-gost/x/config/parsing/parser"
-	xmetrics "github.com/go-gost/x/metrics"
 	metrics "github.com/go-gost/x/metrics/service"
 	"github.com/go-gost/x/registry"
 	"github.com/judwhite/go-svc"
@@ -28,7 +25,7 @@ import (
 type program struct {
 	srvApi       service.Service
 	srvMetrics   service.Service
-	srvProfiling *http.Server
+	srvProfiling service.Service
 
 	cancel context.CancelFunc
 }
@@ -60,19 +57,7 @@ func (p *program) Start() error {
 		os.Exit(0)
 	}
 
-	config.Set(cfg)
-
-	// Enable metrics before loading services so that listener wrappers
-	// can observe the enabled state at Init time.
-	if cfg.Metrics != nil && cfg.Metrics.Addr != "" {
-		xmetrics.Enable(true)
-	}
-
-	if err := loader.Load(cfg); err != nil {
-		return err
-	}
-
-	if err := p.run(cfg); err != nil {
+	if err := p.activateConfig(cfg); err != nil {
 		return err
 	}
 
@@ -83,115 +68,18 @@ func (p *program) Start() error {
 	return nil
 }
 
-func (p *program) run(cfg *config.Config) error {
-	for _, svc := range registry.ServiceRegistry().GetAll() {
-		svc := svc
-		go func() {
-			svc.Serve()
-		}()
-	}
-
-	if p.srvApi != nil {
-		p.srvApi.Close()
-		p.srvApi = nil
-	}
-	if cfg.API != nil {
-		s, err := buildApiService(cfg.API)
-		if err != nil {
-			return err
-		}
-
-		p.srvApi = s
-
-		go func() {
-			defer s.Close()
-
-			log := logger.Default().WithFields(map[string]any{"kind": "service", "service": "@api"})
-
-			log.Info("listening on ", s.Addr())
-			if err := s.Serve(); !errors.Is(err, http.ErrServerClosed) {
-				log.Error(err)
-			}
-		}()
-	}
-
-	if p.srvMetrics != nil {
-		p.srvMetrics.Close()
-		p.srvMetrics = nil
-	}
-	if cfg.Metrics != nil && cfg.Metrics.Addr != "" {
-		s, err := buildMetricsService(cfg.Metrics)
-		if err != nil {
-			return err
-		}
-
-		p.srvMetrics = s
-
-		go func() {
-			defer s.Close()
-
-			log := logger.Default().WithFields(map[string]any{"kind": "service", "service": "@metrics"})
-
-			log.Info("listening on ", s.Addr())
-			if err := s.Serve(); !errors.Is(err, http.ErrServerClosed) {
-				log.Error(err)
-			}
-		}()
-	}
-
-	if p.srvProfiling != nil {
-		p.srvProfiling.Close()
-		p.srvProfiling = nil
-	}
-	if cfg.Profiling != nil {
-		addr := cfg.Profiling.Addr
-		if addr == "" {
-			addr = ":6060"
-		}
-		s := &http.Server{
-			Addr: addr,
-		}
-		p.srvProfiling = s
-
-		go func() {
-			defer s.Close()
-
-			log := logger.Default().WithFields(map[string]any{"kind": "service", "service": "@profiling"})
-
-			log.Info("listening on ", addr)
-			if err := s.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-				log.Error(err)
-			}
-		}()
-	}
-
-	return nil
-}
-
 func (p *program) Stop() error {
 	if p.cancel != nil {
 		p.cancel()
 	}
 
-	for name, srv := range registry.ServiceRegistry().GetAll() {
-		srv.Close()
-		logger.Default().Debugf("service %s shutdown", name)
-	}
-
-	if p.srvApi != nil {
-		p.srvApi.Close()
-		logger.Default().Debug("service @api shutdown")
-	}
-	if p.srvMetrics != nil {
-		p.srvMetrics.Close()
-		logger.Default().Debug("service @metrics shutdown")
-	}
-	if p.srvProfiling != nil {
-		p.srvProfiling.Close()
-		logger.Default().Debug("service @profiling shutdown")
-	}
-
-	return nil
+	return loader.WithLock(func() error {
+		for name := range registry.ServiceRegistry().GetAll() {
+			registry.ServiceRegistry().Unregister(name)
+			logger.Default().Debugf("service %s shutdown", name)
+		}
+		return p.deactivateRuntime()
+	})
 }
 
 func (p *program) reload(ctx context.Context) {
@@ -228,24 +116,16 @@ func (p *program) reload(ctx context.Context) {
 }
 
 func (p *program) reloadConfig() error {
-	cfg, err := parser.Parse()
-	if err != nil {
-		return err
-	}
-	config.Set(cfg)
-
-	if err := loader.Load(cfg); err != nil {
-		return err
-	}
-
-	if err := p.run(cfg); err != nil {
-		return err
-	}
-
-	return nil
+	return loader.WithLock(func() error {
+		cfg, err := parser.Parse()
+		if err != nil {
+			return err
+		}
+		return p.activateConfigLocked(cfg)
+	})
 }
 
-func buildApiService(cfg *config.APIConfig) (service.Service, error) {
+func buildApiService(cfg *config.APIConfig, reload func() error) (service.Service, error) {
 	var authers []auth.Authenticator
 	if auther := auth_parser.ParseAutherFromAuth(cfg.Auth); auther != nil {
 		authers = append(authers, auther)
@@ -270,6 +150,7 @@ func buildApiService(cfg *config.APIConfig) (service.Service, error) {
 		api_service.PathPrefixOption(cfg.PathPrefix),
 		api_service.AccessLogOption(cfg.AccessLog),
 		api_service.AutherOption(auther),
+		api_service.ReloadOption(reload),
 	)
 }
 

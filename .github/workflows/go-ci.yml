@@ -18,6 +18,15 @@ on:
         description: gust-x branch to validate with this gust branch
         required: false
         default: master
+      policy_target:
+        description: release branch policy to enforce for this candidate
+        required: false
+        type: choice
+        options:
+          - master
+          - singbox-backend
+          - qtui-route-manage
+        default: master
 
 permissions:
   contents: read
@@ -70,7 +79,7 @@ jobs:
       - name: Enforce branch policy
         shell: bash
         env:
-          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+          TARGET_BRANCH: ${{ github.event.inputs.policy_target || github.base_ref || github.ref_name }}
         run: bash .github/scripts/check_branch_policy.sh "${TARGET_BRANCH}" ../gust-x
 
       - name: Validate PowerShell build script syntax
@@ -189,7 +198,7 @@ jobs:
 
       - name: Enforce branch policy
         env:
-          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+          TARGET_BRANCH: ${{ github.event.inputs.policy_target || github.base_ref || github.ref_name }}
         run: bash .github/scripts/check_branch_policy.sh "${TARGET_BRANCH}" ../gust-x
 
       - name: Run bounded Docker E2E suite
@@ -226,10 +235,31 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Resolve gust-x ref
+        id: gustx
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+          INPUT_GUST_X_REF: ${{ github.event.inputs.gust_x_ref }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            ref="${PR_HEAD_REF}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_GUST_X_REF}" ]]; then
+            ref="${INPUT_GUST_X_REF}"
+          else
+            ref="${GITHUB_REF_NAME}"
+          fi
+          if gh api "repos/lovitus/gust-x/git/refs/heads/${ref}" >/dev/null 2>&1; then
+            echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "ref=master" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Checkout gust-x
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch master
+        run: gh repo clone lovitus/gust-x ../gust-x -- --depth 1 --branch "${{ steps.gustx.outputs.ref }}"
 
       - name: Build Gust
         run: go build -trimpath -o "${RUNNER_TEMP}/gust" ./cmd/gost
