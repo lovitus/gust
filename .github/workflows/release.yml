@@ -185,6 +185,20 @@ jobs:
               tar -czf "dist/portyd-${NAME}-${VERSION}.tar.gz" -C dist "portyd-${NAME}"
             fi
             rm -f "$PORTYD_BIN"
+
+            # Build portyc (standalone Porty SSH-exit provider) from gust-x
+            PORTYC_BIN="dist/portyc-${NAME}${EXT}"
+            echo "building portyc-${NAME}..."
+            (cd ../gust-x && env "${build_env[@]}" \
+              go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" \
+              -o "$GITHUB_WORKSPACE/$PORTYC_BIN" ./cmd/portyc)
+
+            if [[ "$GOOS" == "windows" ]]; then
+              zip -j "dist/portyc-${NAME}-${VERSION}.zip" "$PORTYC_BIN"
+            else
+              tar -czf "dist/portyc-${NAME}-${VERSION}.tar.gz" -C dist "portyc-${NAME}"
+            fi
+            rm -f "$PORTYC_BIN"
           done
 
       - name: Upload artifacts

@@ -1,6 +1,6 @@
 # Release and Package Manager Publishing
 
-This repository publishes normal GitHub Release assets for every `v*` tag. Release assets include the main `gost` binary and the standalone `portyd` server built from `lovitus/gust-x`. Package-manager channels are stricter: Homebrew, Scoop, APT, and RPM repositories are updated only for stable tags matching `^v[0-9]+\.[0-9]+\.[0-9]+$`.
+This repository publishes normal GitHub Release assets for every `v*` tag. Release assets include the main `gost` binary and the standalone `portyd` server and `portyc` SSH-exit provider built from `lovitus/gust-x`. Package-manager channels are stricter: Homebrew, Scoop, APT, and RPM repositories are updated only for stable tags matching `^v[0-9]+\.[0-9]+\.[0-9]+$`.
 
 Standard tags must point to commits contained in `origin/master`; the release
 workflow rejects any other source. Embedded sing-box releases are maintained
@@ -11,7 +11,7 @@ channels or replace the latest standard release. See
 [BRANCH_POLICY.md](BRANCH_POLICY.md) before preparing any release line.
 
 Current suffix releases such as `v3.2.9-porty7` are prereleases. They publish
-normal GitHub Release archives for `gost` and `portyd`, but they do not update
+normal GitHub Release archives for `gost`, `portyd`, and `portyc`, but they do not update
 Homebrew, Scoop, APT, or RPM package-manager channels.
 
 ## Release Types
