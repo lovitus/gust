@@ -1,13 +1,13 @@
 Package: gust
-Version: 3.2.11-1
+Version: 3.2.12-1
 Architecture: amd64
 Maintainer: gust maintainers <noreply@github.com>
-Installed-Size: 53160
-Filename: pool/main/g/gust/gust_3.2.11_amd64.deb
-Size: 21508646
-MD5sum: aee2d9550da1e6c1090af9643cfc3ed2
-SHA1: 5b4f9461dee6c944d1a22d92cac88d140607c79c
-SHA256: 44b5d44543b48f87e369046c597ef0b6880588a545736d26e427782820f8c47d
+Installed-Size: 53204
+Filename: pool/main/g/gust/gust_3.2.12_amd64.deb
+Size: 21529936
+MD5sum: 58554cc6baa5642f3f8a18c35eb66a7b
+SHA1: 7d9adc8615c0b912b9660a6dc1ef053ddf62aa31
+SHA256: ba62bdfc935677e22bba9779f113d8ef77cebb27386783d967d63f34ff2efc3f
 Section: utils
 Priority: optional
 Homepage: https://github.com/lovitus/gust
