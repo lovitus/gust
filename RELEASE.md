@@ -4,7 +4,7 @@ Gust maintains three independent development and release lines.
 
 | Line | Source branch | Tag namespace | Assets | Package channels |
 |---|---|---|---|---|
-| Standard Gust | `master` | `vX.Y.Z` | `gost` and `portyd` standard matrix | Homebrew, Scoop, APT and RPM for stable tags |
+| Standard Gust | `master` | `vX.Y.Z` | `gost`, `portyd` and `portyc` standard matrix | Homebrew, Scoop, APT and RPM for stable tags |
 | Embedded sing-box | `singbox-backend` | `singbox-vX.Y.Z` | Six `gust-with-singbox` archives | None |
 | QtUI route manager | `qtui-route-manage` | `qtui-vX.Y.Z` | Native desktop route-manager archives | None |
 
@@ -17,7 +17,7 @@ channels or replace the latest standard release. See
 [BRANCH_POLICY.md](BRANCH_POLICY.md) before preparing any release line.
 
 Current suffix releases such as `v3.2.9-porty7` are prereleases. They publish
-normal GitHub Release archives for `gost` and `portyd`, but they do not update
+normal GitHub Release archives for `gost`, `portyd`, and `portyc`, but they do not update
 Homebrew, Scoop, APT, or RPM package-manager channels.
 
 The three branches have separate release workflow definitions.

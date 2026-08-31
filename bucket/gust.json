@@ -1,12 +1,12 @@
 {
-  "version": "3.2.11",
+  "version": "3.2.12",
   "description": "GOST fork with SSH relay fallback enhancements.",
   "homepage": "https://github.com/lovitus/gust",
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/lovitus/gust/releases/download/v3.2.11/gost-windows-amd64-3.2.11.zip",
-      "hash": "fe142f9d5326bf7c1f73080c3b9cc9acf366fc0a30b15f83aca7b6f76e31cf7b",
+      "url": "https://github.com/lovitus/gust/releases/download/v3.2.12/gost-windows-amd64-3.2.12.zip",
+      "hash": "cf5199d894661a9cb1e07efe02f150fefb47552ab4de7819e96ca23b3ea07715",
       "bin": [
         [
           "gost-windows-amd64.exe",
@@ -15,8 +15,8 @@
       ]
     },
     "arm64": {
-      "url": "https://github.com/lovitus/gust/releases/download/v3.2.11/gost-windows-arm64-3.2.11.zip",
-      "hash": "a5c13a772048a89a312b960344e865719f554811157809f61144d81a934836b9",
+      "url": "https://github.com/lovitus/gust/releases/download/v3.2.12/gost-windows-arm64-3.2.12.zip",
+      "hash": "ae85f05ea084f23ad9984e68d1cbc9cf5856f2e1985b73f8bde8583bb0561556",
       "bin": [
         [
           "gost-windows-arm64.exe",
