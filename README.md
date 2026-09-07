@@ -16,6 +16,14 @@
 
 See [FORK_CHANGES.md](FORK_CHANGES.md) for detailed technical documentation and upstream merge notes. Full Porty and sings documentation lives in [gust-x docs/porty.md](https://github.com/lovitus/gust-x/blob/master/docs/porty.md) and [gust-x docs/sings-protocol.md](https://github.com/lovitus/gust-x/blob/master/docs/sings-protocol.md).
 
+### Porty 使用指南
+
+实际发布命令为 `gost`。普通端口共享与 portyc SSH 出口是两种用途，先按场景选择：
+
+- [快速使用](https://github.com/lovitus/gust-x/blob/master/docs/porty-quickstart.md)：每台机器执行什么、地址指向哪里、怎样验证业务连通。
+- [高阶使用](https://github.com/lovitus/gust-x/blob/master/docs/porty-advanced.md)：多个内网、密码/私钥、YAML、后续代理链、反代与排障。
+- [原理与边界](https://github.com/lovitus/gust-x/blob/master/docs/porty-design.md)：谁负责 SSH、各层能看到什么，以及隐蔽性限制。
+
 维护规则：所有通用能力必须先在 `master` 实现；`singbox-backend` 只是在
 `master` 之上的嵌入式 sing-box 扩展。分支同步、PR 目标和 tag 规则见
 [BRANCH_POLICY.md](BRANCH_POLICY.md)。

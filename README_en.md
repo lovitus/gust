@@ -5,14 +5,19 @@
 
 ## Additional Features (vs upstream)
 
-- **Porty Stealth Port Forwarding** - Disguises TCP port forwarding as normal HTTPS/WebSocket traffic with AEAD authentication, smux session caching, multi-port mixed-role sessions, optional P2P direct mode, dynamic `bindpath` WS bridge for Mihomo/iOS, and the standalone `portyd` server.
+- **Porty Port Forwarding** - Carries shared TCP services over WS/WSS with AEAD and multiplexing. `portyd` relays streams; named `portyc` exits provide SSH transports while access-side Gust owns SSH authentication and host-key verification. Loopback targets and subsequent proxy hops still pass through SSH, without exec fallback. Ordinary sharing, optional P2P, and bindpath are separate from the SSH-only exit mode.
 - **sings + Mihomo smux** - `sings` integrates sing-shadowsocks TCP/UoT/AEAD-2022 and now accepts sing-box/Mihomo common `smux` TCP multiplexing, reducing WSS connection counts when used behind Porty `bindpath`.
 - **SSH Relay Fallback** - When SSH server disables TCP forwarding (`AllowTcpForwarding=no`), automatically falls back through multiplexed relay, embedded relay binary, or exec-based tools. Original direct-tcpip is always prioritized.
 - **Escape-Based Passwords** - Supports backslash escapes and quotes in inline passwords, while remaining compatible with URL encoding.
 - **SOCKS5 UDP First-Packet Pinning** - Supports split TCP/UDP source paths with opt-in first-packet source locking.
-- **Cross-Platform Builds** - Release tags publish `gost` and `portyd` binaries for the supported platform matrix.
+- **Cross-Platform Builds** - Release tags publish `gost`, `portyd`, and `portyc` binaries for the supported platform matrix.
 
 See [FORK_CHANGES.md](FORK_CHANGES.md) for technical details and upstream merge notes. Full Porty and sings documentation lives in [gust-x docs/porty.md](https://github.com/lovitus/gust-x/blob/master/docs/porty.md) and [gust-x docs/sings-protocol.md](https://github.com/lovitus/gust-x/blob/master/docs/sings-protocol.md).
+
+Porty guides (Chinese): [Quick start](https://github.com/lovitus/gust-x/blob/master/docs/porty-quickstart.md),
+[Advanced usage](https://github.com/lovitus/gust-x/blob/master/docs/porty-advanced.md), and
+[Design and trust boundaries](https://github.com/lovitus/gust-x/blob/master/docs/porty-design.md).
+The shipped command is `gost`; use matching versions of all three binaries.
 
 All general-purpose work must land on `master` first. `singbox-backend` is only
 the embedded sing-box extension layered on that baseline. See

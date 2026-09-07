@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
+	tcexec "github.com/testcontainers/testcontainers-go/exec"
 )
 
 // TLSSuite covers TLS listener behavior, in particular the rejectUnknownSNI
@@ -47,14 +48,13 @@ func (s *TLSSuite) sniHandshake(c testcontainers.Container, sni string) int {
 	} else {
 		args = append(args, "-servername", sni)
 	}
-	code, out, err := c.Exec(s.ctx, args)
-	if err != nil {
-		s.T().Logf("openssl exec error: %v", err)
-		return -1
-	}
-	if b, e := io.ReadAll(out); e == nil {
-		s.T().Logf("openssl output (sni=%q):\n%s", sni, string(b))
-	}
+	// Drain command output before Exec inspects the exit status. Otherwise
+	// an early Docker exec inspection can report the initial zero status.
+	code, out, err := c.Exec(s.ctx, args, tcexec.Multiplexed())
+	s.Require().NoError(err, "execute openssl; infrastructure errors are not TLS rejection")
+	b, err := io.ReadAll(out)
+	s.Require().NoError(err)
+	s.T().Logf("openssl output (sni=%q):\n%s", sni, string(b))
 	return code
 }
 

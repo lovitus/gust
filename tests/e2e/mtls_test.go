@@ -20,6 +20,7 @@ import (
 	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
+	tcexec "github.com/testcontainers/testcontainers-go/exec"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
@@ -184,12 +185,18 @@ func (s *MTLSSuite) TestMTLSWithoutClientCert() {
 		"--proxy-cacert", "/certs/ca.pem",
 		"-x", "https://127.0.0.1:8443",
 		fmt.Sprintf("http://%s:5678", s.echoIP)}
-	code, _, err := gostC.Exec(s.ctx, cmd)
-	if err == nil && code == 0 {
+	// Multiplexed drains to EOF before Exec reads the final process status.
+	code, out, err := gostC.Exec(s.ctx, cmd, tcexec.Multiplexed())
+	s.Require().NoError(err, "execute curl; infrastructure errors are not mTLS rejection")
+	body, err := io.ReadAll(out)
+	s.Require().NoError(err)
+	s.T().Logf("curl without client certificate:\n%s", body)
+	if code == 0 {
 		DumpLogs(s.T(), s.ctx, "mtls gost logs", gostC)
 	}
 	// Expect failure (non-zero exit code from curl)
 	s.Require().NotEqual(0, code, "curl without client cert should fail with non-zero exit code")
+	s.Require().NotContains(string(body), "hello-gost", "unauthenticated request must not reach the backend")
 }
 
 // TestMTLSAuthPluginLogs verifies that the HTTP auth plugin receives
