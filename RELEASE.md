@@ -1,5 +1,19 @@
 # Release and Package Manager Publishing
 
+The release workflow validates its downloaded Linux amd64 archives before
+publishing: real `gost`, `portyd`, `portyc`, and OpenSSH run in four isolated
+network namespaces (relay, access, and two LANs). The two LANs deliberately use
+the same loopback service address. Checks cover WS/WSS, ordinary shares, named
+and default exits, key/password authentication, an HTTP proxy after SSH, rejected
+host keys and forwarding, and portyc's actual connect/listen system calls.
+Ephemeral credentials and raw traces are never uploaded; sanitized evidence
+includes the archive/binary hashes and both source revisions. Dispatched
+build-only runs perform the same checks without publishing a release. This is
+real binary/OpenSSH validation, not validation of a user's WAN/CDN or devices.
+For harness-only corrections, a dispatched `artifact_run_id` may reuse a prior
+build's archives. The gate rejects a different gust-x pin or any product-source
+change; evidence distinguishes the binary source SHA from the harness SHA.
+
 This repository publishes normal GitHub Release assets for every `v*` tag. Release assets include the main `gost` binary and the standalone `portyd` server and `portyc` SSH-exit provider built from `lovitus/gust-x`. Package-manager channels are stricter: Homebrew, Scoop, APT, and RPM repositories are updated only for stable tags matching `^v[0-9]+\.[0-9]+\.[0-9]+$`.
 
 Standard tags must point to commits contained in `origin/master`; the release

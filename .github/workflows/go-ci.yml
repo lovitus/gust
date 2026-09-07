@@ -109,6 +109,10 @@ jobs:
         working-directory: ../gust-x
         run: go mod download
 
+      - name: Verify SSH-only Porty exits with race detection
+        working-directory: ../gust-x
+        run: go test -race -count=1 -timeout 5m ./cmd/portyc ./connector/porty ./dialer/sshd
+
       - name: Test gust-x
         working-directory: ../gust-x
         run: go test ./...

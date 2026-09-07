@@ -10,6 +10,10 @@ on:
         description: Build-only version used for artifact validation (no release is published)
         required: true
         default: 0.0.0-ci
+      artifact_run_id:
+        description: Optional previous build run to revalidate identical product binaries after harness-only changes
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -71,6 +75,7 @@ jobs:
   build:
     name: build / ${{ matrix.group }}
     needs: guard
+    if: ${{ !inputs.artifact_run_id }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -208,9 +213,78 @@ jobs:
           path: dist/
           retention-days: 1
 
+  porty-smoke:
+    name: release binaries / isolated Porty and OpenSSH
+    needs: [guard, build]
+    if: ${{ always() && needs.guard.result == 'success' && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.artifact_run_id != '' && needs.build.result == 'skipped')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Verify artifact source and unchanged product code
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_RUN_ID: ${{ inputs.artifact_run_id || github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_RUN_ID" =~ ^[0-9]+$ ]]
+          # Artifact provenance, not a workflow status query or polling loop.
+          source_sha="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ARTIFACT_RUN_ID/artifacts" \
+            --jq '.artifacts[] | select(.name == "dist-linux-main" and .expired == false) | .workflow_run.head_sha')"
+          [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin "$source_sha"
+          test "$(git show "$source_sha:.github/master-gust-x.ref")" = "$(cat .github/master-gust-x.ref)"
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/release.yml|tests/e2e/scripts/porty_release_smoke.py|RELEASE.md) ;;
+              *) echo "product source changed; rebuild required: $path" >&2; exit 1 ;;
+            esac
+          done < <(git diff --name-only "$source_sha" HEAD)
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist-linux-main
+          path: artifact-input
+          run-id: ${{ inputs.artifact_run_id || github.run_id }}
+          github-token: ${{ github.token }}
+      - name: Install isolated validation prerequisites
+        run: |
+          sudo timeout 120 apt-get update -qq
+          sudo timeout 120 apt-get install -y --no-install-recommends openssh-server iproute2 strace openssl
+      - name: Exercise the downloaded release binaries
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          pin="$(tr -d '[:space:]' < .github/master-gust-x.ref)"
+          timeout --signal=TERM --kill-after=20s 10m \
+            sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_SHA,GITHUB_RUN_ID \
+            python3 tests/e2e/scripts/porty_release_smoke.py \
+              --artifacts "$GITHUB_WORKSPACE/artifact-input" \
+              --work "$RUNNER_TEMP/porty-runtime" \
+              --evidence "$RUNNER_TEMP/porty-evidence" \
+              --gust-x-sha "$pin" \
+              --source-sha "$SOURCE_SHA"
+      - name: Upload sanitized artifact validation evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: porty-release-evidence
+          path: ${{ runner.temp }}/porty-evidence/
+          if-no-files-found: error
+          retention-days: 7
+
   release:
     name: publish release
-    needs: build
+    needs: [build, porty-smoke]
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
