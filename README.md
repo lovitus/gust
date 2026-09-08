@@ -20,8 +20,11 @@ See [FORK_CHANGES.md](FORK_CHANGES.md) for detailed technical documentation and 
 
 实际发布命令为 `gost`。普通端口共享与 portyc SSH 出口是两种用途，先按场景选择：
 
+[v3.2.13 正式产物](https://github.com/lovitus/gust/releases/tag/v3.2.13) 在 Release 页的 Assets 中，
+包含三个程序；不是页面底部的 Source code。另见[直接下载入口与说明](https://github.com/lovitus/gust-x/blob/master/docs/porty-quickstart.md#正式-release-产物在哪里)。
+
 - [快速使用](https://github.com/lovitus/gust-x/blob/master/docs/porty-quickstart.md)：每台机器执行什么、地址指向哪里、怎样验证业务连通。
-- [高阶使用](https://github.com/lovitus/gust-x/blob/master/docs/porty-advanced.md)：多个内网、密码/私钥、YAML、后续代理链、反代与排障。
+- [高阶使用](https://github.com/lovitus/gust-x/blob/master/docs/porty-advanced.md)：多用户、多内网、WSS、后台、密码/私钥和代理链的完整 CLI，以及反代与排障。
 - [原理与边界](https://github.com/lovitus/gust-x/blob/master/docs/porty-design.md)：谁负责 SSH、各层能看到什么，以及隐蔽性限制。
 
 维护规则：所有通用能力必须先在 `master` 实现；`singbox-backend` 只是在
