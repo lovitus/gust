@@ -252,10 +252,13 @@ LogLevel DEBUG1
                                 "--max-time", "5", f"http://127.0.0.1:{port}/"), check=False)
 
     def forward(self, label, tls, lan="a", password=False, proxy=False,
-                reject=None, ordinary=None, legacy=False):
+                reject=None, ordinary=None, legacy=False,
+                scheme_key="scheme", exit_key="portyc"):
         port = 20000 + len(self.report["checks"])
         target = f"127.0.0.1:{ordinary or 18080}"
         endpoint = self.url("access", tls, "" if ordinary else ("&exit=ssh" if legacy else f"&portyc={lan}"))
+        endpoint = endpoint.replace("&scheme=wss", f"&{scheme_key}=wss")
+        endpoint = endpoint.replace("&portyc=", f"&{exit_key}=")
         argv = [self.gost, "-L", f"tcp://127.0.0.1:{port}/{target}", "-F", endpoint]
         if reject == "http-before-ssh":
             argv += ["-F", "http://127.0.0.1:18081"]
@@ -302,6 +305,10 @@ LogLevel DEBUG1
         self.forward(f"{mode} rejects HTTP before SSH", tls, reject="http-before-ssh")
         self.forward(f"{mode} rejects changed SSH host key", tls, reject="host-key")
         self.forward(f"{mode} forwarding denied without exec fallback", tls, reject="forwarding")
+        if tls:
+            for scheme_key, exit_key in (("schema", "portyc"), ("protocol", "name"), ("scheme", "name")):
+                self.forward(f"WSS SSH exit aliases {scheme_key}-{exit_key}", tls,
+                             scheme_key=scheme_key, exit_key=exit_key)
         # Default and named registrations must also coexist without mixing.
         cfg = self.file(f"portyc-{mode}-legacy.yaml", f"forward: '{self.url('a', tls)}'\n")
         self.start("a", f"portyc-{mode}-legacy", ["strace", "-f", "-e", "trace=connect,bind,listen",
