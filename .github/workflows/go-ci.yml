@@ -32,33 +32,6 @@ permissions:
   contents: read
 
 jobs:
-  windows-ssh-pins:
-    name: Windows SSH pin persistence
-    runs-on: windows-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - name: Resolve pinned gust-x
-        id: pin
-        shell: bash
-        run: |
-          ref="$(tr -d '[:space:]' < .github/master-gust-x.ref)"
-          [[ "$ref" =~ ^[0-9a-f]{40}$ ]]
-          echo "ref=$ref" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v7
-        with:
-          repository: lovitus/gust-x
-          ref: ${{ steps.pin.outputs.ref }}
-          token: ${{ secrets.GH_PAT }}
-          path: gust-x
-      - uses: actions/setup-go@v7
-        with:
-          go-version: '1.26.5'
-          cache-dependency-path: gust-x/go.sum
-      - name: Test native file locks, replacement and SSH key negotiation
-        working-directory: gust-x
-        run: go test -count=1 -timeout 3m -run 'TestManagedPin|TestAutomaticSSHMetadata|TestExplicitSSHPolicy|TestDirectOnly' ./dialer/sshd
-
   test:
     name: unit and configuration tests
     runs-on: ubuntu-latest

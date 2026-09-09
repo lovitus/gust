@@ -96,7 +96,6 @@ class Smoke:
         self.user_created = False
         self.namespaces = []
         self.processes = []
-        self.ssh_servers = {}
         self.redactions = []
         self.report = {"status": "running", "gust_sha": args.source_sha,
                        "validation_sha": os.getenv("GITHUB_SHA"),
@@ -127,9 +126,6 @@ class Smoke:
         return path
 
     def prepare(self):
-        # Exercise automatic OS-config discovery without touching the runner's
-        # own SSH records or asking the product for a custom known_hosts path.
-        os.environ["XDG_CONFIG_HOME"] = str(self.private / "config")
         self.report["tools"] = run("dpkg-query", "-W", "openssh-server", "iproute2", "strace", "openssl").stdout
         binaries = self.root / "bin"
         binaries.mkdir()
@@ -233,7 +229,7 @@ LogLevel DEBUG1
             for port in (22, 2222):
                 cfg = self.private / f"sshd-{lan}-{port}"
                 run("/usr/sbin/sshd", "-t", "-f", cfg)
-                self.ssh_servers[(lan, port)] = self.start(lan, f"sshd-{lan}-{port}", ["/usr/sbin/sshd", "-D", "-e", "-f", cfg], "Server listening")
+                self.start(lan, f"sshd-{lan}-{port}", ["/usr/sbin/sshd", "-D", "-e", "-f", cfg], "Server listening")
             self.start(lan, f"proxy-{lan}", [self.gost, "-L", "http://127.0.0.1:18081"], "listening on")
             public = (self.private / f"host-{lan}.pub").read_text().split()
             known = self.file(f"known-{lan}", "127.0.0.1 " + " ".join(public[:2]) + "\n")
@@ -257,7 +253,7 @@ LogLevel DEBUG1
 
     def forward(self, label, tls, lan="a", password=False, proxy=False,
                 reject=None, ordinary=None, legacy=False,
-                scheme_key="scheme", exit_key="portyc", tofu=False, accept_change=False):
+                scheme_key="scheme", exit_key="portyc", verify_host=True):
         port = 20000 + len(self.report["checks"])
         target = f"127.0.0.1:{ordinary or 18080}"
         endpoint = self.url("access", tls, "" if ordinary else ("&exit=ssh" if legacy else f"&portyc={lan}"))
@@ -270,10 +266,8 @@ LogLevel DEBUG1
             auth = f"{self.user}:{self.password}" if password else self.user
             fingerprint = self.hostkeys["b" if reject == "host-key" else lan]
             query = "handshakeTimeout=3s"
-            if not tofu:
+            if verify_host:
                 query += f"&hostKey={quote(fingerprint, safe='')}"
-            if accept_change:
-                query += "&accept-fingerprint-change=true"
             if not password:
                 query += f"&privateKeyFile={self.clientkey}"
             argv += ["-F", f"sshd://{auth}@127.0.0.1:{2222 if reject == 'forwarding' else 22}?{query}"]
@@ -284,63 +278,10 @@ LogLevel DEBUG1
             result = self.request(port)
             if reject:
                 self.check(label, result.returncode != 0)
-                if reject == "pin-change":
-                    p.ready("accept-fingerprint-change=true")
             else:
                 self.check(label, result.returncode == 0 and result.stdout == f"lan-{lan}\n")
         finally:
             p.stop()
-
-    def tofu(self, tls):
-        store = self.private / "config" / "gost" / "ssh"
-        existing = set(store.glob("*_known_hosts"))
-        self.forward("TOFU first use with password and no trust options", tls, password=True, tofu=True)
-        created = set(store.glob("*_known_hosts")) - existing
-        self.check("TOFU automatically created exactly one pin", len(created) == 1)
-        pin = created.pop()
-        original = pin.read_bytes()
-        self.check("TOFU pin permissions", pin.stat().st_mode & 0o777 == 0o600)
-        self.forward("TOFU persists across Gost restarts", tls, password=True, tofu=True)
-        self.check("TOFU unchanged pin is not rewritten", pin.read_bytes() == original)
-        self.forward("TOFU isolates another LAN with same loopback SSH address", tls, lan="b", password=True, tofu=True)
-        self.check("TOFU two LAN pins coexist", len(set(store.glob("*_known_hosts")) - existing) == 2 and pin.read_bytes() == original)
-
-        old = self.private / "host-a"
-        ec = self.private / "host-a-ecdsa"
-        run("ssh-keygen", "-q", "-t", "ecdsa", "-b", "256", "-N", "", "-f", ec)
-        self.restart_ssh_a([old, ec], "multiple-keys")
-        self.forward("TOFU prefers its pinned key when ECDSA is also offered", tls, password=True, tofu=True)
-        self.check("TOFU extra algorithm does not replace pin", pin.read_bytes() == original)
-
-        rotated = self.private / "host-a-rotated"
-        run("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", rotated)
-        self.restart_ssh_a([rotated, ec], "rotated")
-        self.forward("TOFU rejects changed fingerprint before password auth", tls, password=True, tofu=True, reject="pin-change")
-        self.check("TOFU rejection preserves old pin", pin.read_bytes() == original)
-        self.ssh_servers[("a", 22)].ready("Connection closed")
-        rejected_log = (self.private / "sshd-a-22-rotated.log").read_text()
-        self.check("TOFU does not send credentials to changed host", "Accepted password" not in rejected_log and "method password" not in rejected_log)
-        self.forward("TOFU explicit change acceptance", tls, password=True, tofu=True, accept_change=True)
-        accepted = pin.read_bytes()
-        self.check("TOFU acceptance persisted new pin", accepted != original)
-        self.forward("TOFU reconnect without acceptance flag", tls, password=True, tofu=True)
-
-        changed_again = self.private / "host-a-changed-again"
-        run("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", changed_again)
-        self.restart_ssh_a([changed_again], "changed-again")
-        self.forward("TOFU rejects a later change after acknowledgement", tls, password=True, tofu=True, reject="pin-change")
-        pin.unlink()  # Only this run's own, explicitly identified test pin.
-        self.forward("TOFU explicit pin deletion resets first use", tls, password=True, tofu=True)
-        self.check("TOFU recreated deleted pin", pin.exists() and pin.read_bytes() != accepted)
-        self.hostkeys["a"] = run("ssh-keygen", "-lf", changed_again.with_suffix(".pub")).stdout.split()[1]
-
-    def restart_ssh_a(self, keys, label):
-        self.ssh_servers[("a", 22)].stop()
-        cfg = self.private / "sshd-a-22"
-        body = "\n".join(line for line in cfg.read_text().splitlines() if not line.startswith("HostKey "))
-        cfg.write_text(body + "\n" + "".join(f"HostKey {key}\n" for key in keys))
-        run("/usr/sbin/sshd", "-t", "-f", cfg)
-        self.ssh_servers[("a", 22)] = self.start("a", f"sshd-a-22-{label}", ["/usr/sbin/sshd", "-D", "-e", "-f", cfg], "Server listening")
 
     def scenario(self, tls):
         mode = "wss" if tls else "ws"
@@ -361,6 +302,7 @@ LogLevel DEBUG1
             self.forward(f"{mode} ordinary share {lan}", tls, lan=lan, ordinary=virtual)
             self.forward(f"{mode} named exit {lan} loopback via SSH", tls, lan=lan)
         self.forward(f"{mode} password URL authentication", tls, password=True)
+        self.forward(f"{mode} default password SSH without host verification", tls, password=True, verify_host=False)
         self.forward(f"{mode} HTTP proxy after SSH", tls, proxy=True)
         self.forward(f"{mode} rejects missing SSH hop", tls, reject="no-ssh")
         self.forward(f"{mode} rejects HTTP before SSH", tls, reject="http-before-ssh")
@@ -370,7 +312,6 @@ LogLevel DEBUG1
             for scheme_key, exit_key in (("schema", "portyc"), ("protocol", "name"), ("scheme", "name")):
                 self.forward(f"WSS SSH exit aliases {scheme_key}-{exit_key}", tls,
                              scheme_key=scheme_key, exit_key=exit_key)
-            self.tofu(tls)
         # Default and named registrations must also coexist without mixing.
         cfg = self.file(f"portyc-{mode}-legacy.yaml", f"forward: '{self.url('a', tls)}'\n")
         self.start("a", f"portyc-{mode}-legacy", ["strace", "-f", "-e", "trace=connect,bind,listen",
@@ -391,7 +332,7 @@ LogLevel DEBUG1
 
     def finish(self):
         for lan in ("a", "b"):
-            text = "\n".join(path.read_text() for path in self.private.glob(f"sshd-{lan}-22*.log"))
+            text = (self.private / f"sshd-{lan}-22.log").read_text()
             denied = (self.private / f"sshd-{lan}-2222.log").read_text()
             self.check(f"OpenSSH {lan} authenticated and opened direct-tcpip",
                        "Accepted publickey" in text and "direct-tcpip" in text)

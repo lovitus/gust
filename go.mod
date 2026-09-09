@@ -9,7 +9,6 @@ replace github.com/go-gost/core => github.com/lovitus/core v0.6.1-0.202608110409
 require (
 	github.com/go-gost/core v0.6.0
 	github.com/go-gost/x v0.15.2
-	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/judwhite/go-svc v1.2.1
 	github.com/moby/moby/client v0.4.0
 	github.com/stretchr/testify v1.11.1

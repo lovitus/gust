@@ -5,7 +5,7 @@
 
 ## Additional Features (vs upstream)
 
-- **Porty Port Forwarding** - Carries shared TCP services over WS/WSS with AEAD and multiplexing. `portyd` relays streams; named `portyc` exits provide SSH transports while access-side Gust owns SSH authentication and host-key verification. Loopback targets and subsequent proxy hops still pass through SSH, without exec fallback. Ordinary sharing, optional P2P, and bindpath are separate from the SSH-only exit mode.
+- **Porty Port Forwarding** - Carries shared TCP services over WS/WSS with AEAD and multiplexing. `portyd` relays streams; named `portyc` exits provide SSH transports while access-side Gust owns SSH authentication. Host-key verification is explicit opt-in; default connections do not verify or persist host fingerprints. Loopback targets and subsequent proxy hops still pass through SSH, without exec fallback. Ordinary sharing, optional P2P, and bindpath are separate from the SSH-only exit mode.
 - **sings + Mihomo smux** - `sings` integrates sing-shadowsocks TCP/UoT/AEAD-2022 and now accepts sing-box/Mihomo common `smux` TCP multiplexing, reducing WSS connection counts when used behind Porty `bindpath`.
 - **SSH Relay Fallback** - When SSH server disables TCP forwarding (`AllowTcpForwarding=no`), automatically falls back through multiplexed relay, embedded relay binary, or exec-based tools. Original direct-tcpip is always prioritized.
 - **Escape-Based Passwords** - Supports backslash escapes and quotes in inline passwords, while remaining compatible with URL encoding.
